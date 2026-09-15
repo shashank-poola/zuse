@@ -1,5 +1,7 @@
 import { formatDate as formatUiDate } from "@zuse/i18n";
 import { isInputComposing } from "../lib/input-composition.ts";
+import { openExternal } from "../lib/platform-capabilities.ts";
+import { MarkdownBody } from "./markdown-body.tsx";
 import "@zuse/i18n/english/projects";
 import { HugeiconsIcon } from "@hugeicons/react";
 import type { ExecutionRef } from "@zuse/client-runtime/resource-ref";
@@ -672,6 +674,7 @@ function ExternalFeedbackCard({
 }: {
 	readonly feedback: GitPrComment | GitPrReview;
 }) {
+	const { message: uiMessage } = useUiMessages(["common", "projects"]);
 	const timestamp =
 		"createdAt" in feedback ? feedback.createdAt : feedback.submittedAt;
 	return (
@@ -700,9 +703,26 @@ function ExternalFeedbackCard({
 					</time>
 				) : null}
 			</div>
-			<p className="mt-2 line-clamp-4 whitespace-pre-wrap text-[11px] leading-4 text-foreground/90">
-				{feedback.body}
-			</p>
+			<div className="mt-2">
+				{"path" in feedback && feedback.path ? (
+					<div className="mb-2 text-xs font-mono text-muted-foreground">
+						{feedback.path}
+						{feedback.line ? `:${feedback.line}` : ""}
+					</div>
+				) : null}
+				<MarkdownBody githubHtml className="text-xs">
+					{feedback.body}
+				</MarkdownBody>
+				{feedback.url ? (
+					<button
+						type="button"
+						className="mt-2 h-7 text-xs text-muted-foreground hover:text-foreground"
+						onClick={() => void openExternal(feedback.url!)}
+					>
+						{uiMessage("projects:github_open_github") + " ↗"}
+					</button>
+				) : null}
+			</div>
 		</li>
 	);
 }

@@ -57,6 +57,7 @@ const PROVIDER_LABEL: Record<ProviderId, string> = {
 	gemini: "Gemini",
 	cursor: "Cursor",
 	opencode: "OpenCode",
+	opencode2: "OpenCode 2",
 	kiro: "Kiro",
 	pi: "Pi",
 };
@@ -67,6 +68,7 @@ const LOGIN_HINT: Partial<Record<ProviderId, string>> = {
 	grok: "grok login",
 	gemini: "gemini /auth",
 	opencode: "opencode auth login",
+	opencode2: "opencode2 auth login",
 	kiro: "kiro-cli login",
 };
 
@@ -286,12 +288,12 @@ export function ProviderCard({
 				)}
 				<SubscriptionRow providerId={providerId} availability={availability} />
 
-				{providerId === "opencode" ? (
-					// OpenCode fronts ~150 model providers; its card gets a dedicated
+				{providerId === "opencode" || providerId === "opencode2" ? (
+					// OpenCode fronts many model providers; its card gets a dedicated
 					// provider manager (connect catalog providers, add custom
 					// OpenAI-compatible ones, pick which models show) instead of the
 					// single-model defaults + one API key the other harnesses use.
-					<OpencodeProviderManager />
+					<OpencodeProviderManager channel={providerId} />
 				) : (
 					<>
 						<ModelVisibilitySettings providerId={providerId} />

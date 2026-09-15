@@ -285,6 +285,7 @@
 	"github_new_branch": "建立並切換至新分支…",
 	"github_new_origin_branch": "從 origin/main 建立新分支…",
 	"github_continue_tooltip": "從 origin/main 建立並切換至新分支",
+	"github_auto_fix": "自動修復",
 	"projects_sidebar_cloud": "雲端",
 	"github_action_failed": "GitHub 操作失敗",
 	"github_repair_state_changed": "聊天、分支或代理狀態已變更。請從目前 PR 重新執行修復。",

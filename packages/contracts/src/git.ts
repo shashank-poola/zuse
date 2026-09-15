@@ -227,7 +227,47 @@ export const GitPrMergeable = Schema.Literals([
 ]);
 export type GitPrMergeable = typeof GitPrMergeable.Type;
 
+export const GitPrCheckRunStatus = Schema.Literals([
+	"queued",
+	"in_progress",
+	"completed",
+	"pending",
+]);
+export type GitPrCheckRunStatus = typeof GitPrCheckRunStatus.Type;
+
+export const GitPrCheckRunConclusion = Schema.Literals([
+	"success",
+	"failure",
+	"cancelled",
+	"skipped",
+	"neutral",
+	"timed_out",
+	"action_required",
+]);
+export type GitPrCheckRunConclusion = typeof GitPrCheckRunConclusion.Type;
+
+export class GitPrCheckRun extends Schema.Class<GitPrCheckRun>("GitPrCheckRun")(
+	{
+		name: Schema.String,
+		appName: Schema.optional(Schema.NullOr(Schema.String)),
+		appAvatarUrl: Schema.optional(Schema.NullOr(Schema.String)),
+		status: GitPrCheckRunStatus,
+		conclusion: Schema.NullOr(GitPrCheckRunConclusion),
+		url: Schema.NullOr(Schema.String),
+		workflowName: Schema.optional(Schema.NullOr(Schema.String)),
+		runId: Schema.optional(Schema.NullOr(Schema.String)),
+		jobId: Schema.optional(Schema.NullOr(Schema.String)),
+		runnerName: Schema.optional(Schema.NullOr(Schema.String)),
+		runnerGroupName: Schema.optional(Schema.NullOr(Schema.String)),
+		startedAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
+		completedAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
+		runUrl: Schema.optional(Schema.NullOr(Schema.String)),
+	},
+) {}
+
 export class GitPrInfo extends Schema.Class<GitPrInfo>("GitPrInfo")({
+	/** Core checks arrive with the summary, before feedback/avatar enrichment. */
+	checkRuns: Schema.optional(Schema.Array(GitPrCheckRun)),
 	/** Stable GraphQL identity used for cross-window terminal notification claims. */
 	nodeId: Schema.optional(Schema.NullOr(Schema.String)),
 	state: GitPrState,
@@ -336,42 +376,6 @@ export class GitPrFile extends Schema.Class<GitPrFile>("GitPrFile")({
 	deletions: Schema.Number,
 }) {}
 
-export const GitPrCheckRunStatus = Schema.Literals([
-	"queued",
-	"in_progress",
-	"completed",
-	"pending",
-]);
-export type GitPrCheckRunStatus = typeof GitPrCheckRunStatus.Type;
-
-export const GitPrCheckRunConclusion = Schema.Literals([
-	"success",
-	"failure",
-	"cancelled",
-	"skipped",
-	"neutral",
-	"timed_out",
-	"action_required",
-]);
-export type GitPrCheckRunConclusion = typeof GitPrCheckRunConclusion.Type;
-
-export class GitPrCheckRun extends Schema.Class<GitPrCheckRun>("GitPrCheckRun")(
-	{
-		name: Schema.String,
-		status: GitPrCheckRunStatus,
-		conclusion: Schema.NullOr(GitPrCheckRunConclusion),
-		url: Schema.NullOr(Schema.String),
-		workflowName: Schema.optional(Schema.NullOr(Schema.String)),
-		runId: Schema.optional(Schema.NullOr(Schema.String)),
-		jobId: Schema.optional(Schema.NullOr(Schema.String)),
-		runnerName: Schema.optional(Schema.NullOr(Schema.String)),
-		runnerGroupName: Schema.optional(Schema.NullOr(Schema.String)),
-		startedAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
-		completedAt: Schema.optional(Schema.NullOr(Schema.DateFromString)),
-		runUrl: Schema.optional(Schema.NullOr(Schema.String)),
-	},
-) {}
-
 /**
  * Heavier per-PR payload than {@link GitPrInfo}: title, body, reviews, comments,
  * files changed, and the per-run check breakdown. Fetched lazily when the PR
@@ -389,6 +393,7 @@ export class GitPrDetails extends Schema.Class<GitPrDetails>("GitPrDetails")({
 	title: Schema.String,
 	body: Schema.String,
 	author: Schema.String,
+	authorAvatarUrl: Schema.optional(Schema.NullOr(Schema.String)),
 	baseBranch: Schema.NullOr(Schema.String),
 	headBranch: Schema.NullOr(Schema.String),
 	headSha: Schema.optional(Schema.NullOr(Schema.String)),

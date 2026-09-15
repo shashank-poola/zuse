@@ -1,3 +1,5 @@
+import { useGitPrState } from "../lib/use-git-pr-state.ts";
+import { GitStackMenu } from "./git-stack-menu.tsx";
 import "@zuse/i18n/english/projects";
 import { isInputComposing } from "../lib/input-composition.ts";
 import { CreateBranchDialog } from "./create-branch-dialog.tsx";
@@ -18,6 +20,7 @@ import { useMessages as useUiMessages } from "@zuse/i18n/react";
 import {
 	Alert01Icon,
 	ArchiveArrowDownIcon,
+	ArrowDown01Icon,
 	Copy01Icon,
 	GitBranchIcon,
 	GitMergeIcon,
@@ -609,17 +612,23 @@ export function BranchMenuButton({
 
 	return (
 		<>
-			<Menu onOpenChange={(open) => !open && setBranchQuery("")}>
+			<Menu
+				modal={popupSide !== "left"}
+				onOpenChange={(open) => !open && setBranchQuery("")}
+			>
 				<MenuTrigger
 					onClick={onOpen}
-					className={`flex items-center gap-1 rounded-sm px-1.5 py-0.5 font-medium text-foreground outline-none hover:bg-foreground/5 data-[popup-open]:bg-foreground/5 ${className ?? "max-w-64"}`}
+					className={`flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-foreground outline-none hover:bg-foreground/5 data-[popup-open]:bg-foreground/5 ${className ?? "max-w-64"}`}
 					aria-label={uiMessage("chat:top_bar_switch_branch")}
 				>
 					<HugeiconsIcon
 						icon={GitBranchIcon}
 						className="size-3.5 shrink-0 text-muted-foreground"
 					/>
-					<span className="truncate" title={branchLabel}>
+					<span
+						className="min-w-0 flex-1 truncate text-left"
+						title={branchLabel}
+					>
 						{branchLabel}
 					</span>
 					{dirtyFiles > 0 ? (
@@ -633,13 +642,16 @@ export function BranchMenuButton({
 							className="size-3 animate-spin text-muted-foreground"
 						/>
 					) : (
-						<ChevronDown className="size-3 text-muted-foreground" />
+						<HugeiconsIcon
+							icon={ArrowDown01Icon}
+							className="size-3 shrink-0 text-muted-foreground"
+						/>
 					)}
 				</MenuTrigger>
 				<MenuPopup
 					side={popupSide}
 					sideOffset={popupSide === "left" ? 8 : 4}
-					align="center"
+					align="start"
 					className="w-72"
 				>
 					{error !== null ? (
@@ -756,6 +768,13 @@ export function BranchMenuButton({
 					>
 						{uiMessage("projects:github_new_origin_branch")}
 					</MenuItem>
+					{executionRef && (
+						<GitStackMenu
+							executionRef={executionRef}
+							branch={branchLabel}
+							variant="submenu"
+						/>
+					)}
 				</MenuPopup>
 			</Menu>
 			{executionRef && createFrom ? (
@@ -1041,9 +1060,8 @@ export function TopBarRightContent({
 
 	const ctx = useActiveContext();
 	const executionRef = executionRefFor(ctx);
-	const git = useGitWorkspaceResource(executionRef, "connect").data;
-	const status = git?.status ?? null;
-	const pr = git?.pr ?? null;
+	const { gitView, pr } = useGitPrState(executionRef);
+	const status = gitView.data?.status ?? null;
 	const selectedSessionId = useSessionsStore((s) => s.selectedSessionId);
 
 	const canCreatePrWhenSynced = canCreatePrFromSyncedBranch(
@@ -1203,9 +1221,8 @@ export function WorkflowActions({
 	const executionRef = executionRefFor(ctx);
 	const folderId = ctx.status === "ready" ? ctx.folderId : null;
 	const worktreeId = ctx.status === "ready" ? ctx.worktreeId : null;
-	const git = useGitWorkspaceResource(executionRef, "connect").data;
-	const status = git?.status ?? null;
-	const pr = git?.pr ?? null;
+	const { gitView, pr } = useGitPrState(executionRef);
+	const status = gitView.data?.status ?? null;
 	const selectedSessionId = useSessionsStore((s) => s.selectedSessionId);
 	const selectedChatId = useChatsStore((s) => s.selectedChatId);
 	const archiveProgress = useChatsStore((s) =>

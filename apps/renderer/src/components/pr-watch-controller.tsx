@@ -5,6 +5,7 @@ import {
 	useGitWorkspaceResource,
 } from "../lib/git-workspace-client-bus.ts";
 import { preparePrRepair } from "../lib/pr-repair.ts";
+import { createPrWatchActivity } from "../lib/pr-watch-activity.ts";
 import { prFailureKey } from "../lib/pr-watch-policy.ts";
 import { runPrWatchRepair } from "../lib/pr-watch-repair.ts";
 import { sendSessionMessage } from "../lib/session-actions.ts";
@@ -15,7 +16,7 @@ import { type PrWatch, usePrWatchStore } from "../store/pr-watch.ts";
 import { useSessionsStore } from "../store/sessions.ts";
 import { toastManager } from "./ui/toast.tsx";
 
-const running = new Map<string, PrWatch["generation"]>();
+const running = createPrWatchActivity();
 
 function Watch({ watch }: { watch: PrWatch }) {
 	const selectedSessionId = useSessionsStore((s) => s.selectedSessionId);
@@ -38,7 +39,7 @@ function Watch({ watch }: { watch: PrWatch }) {
 	useEffect(() => {
 		if (
 			!isSelected() ||
-			(running.has(watch.id) && running.get(watch.id) === watch.generation) ||
+			running.has(watch) ||
 			workspace.sync !== "live" ||
 			detailsView.sync !== "live" ||
 			timeline.view.sync !== "live" ||
@@ -83,7 +84,7 @@ function Watch({ watch }: { watch: PrWatch }) {
 			);
 			return;
 		}
-		running.set(watch.id, watch.generation);
+		const release = running.begin(watch);
 		void runPrWatchRepair({
 			watch,
 			key,
@@ -132,10 +133,7 @@ function Watch({ watch }: { watch: PrWatch }) {
 					description: formatError(cause),
 				});
 			})
-			.finally(() => {
-				if (running.has(watch.id) && running.get(watch.id) === watch.generation)
-					running.delete(watch.id);
-			});
+			.finally(release);
 	}, [
 		watch,
 		workspace,

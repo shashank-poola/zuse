@@ -31,6 +31,7 @@ import {
 	GitReviewPatch,
 	type GitReviewScope,
 	GitReviewSummary,
+	GitStackResult,
 	GitStalePreviewError,
 	GitStatusSummary,
 } from "@zuse/contracts";
@@ -70,6 +71,7 @@ import {
 	buildCreateReviewCommentArgs,
 	parseReviewIdentity,
 } from "./review-comment.ts";
+import { parseStackView } from "./stack.ts";
 
 type GitFailure =
 	| GitNotARepoError
@@ -685,6 +687,58 @@ export const GitServiceLive = Layer.effect(
 				}),
 			);
 
+		const stack: GitService["Service"]["stack"] = (
+			folderId,
+			action,
+			name,
+			worktreeId,
+		) =>
+			Effect.flatMap(resolvePathForWorktree(folderId, worktreeId), (cwd) =>
+				Effect.gen(function* () {
+					const args = ["stack", action];
+					if (action === "view") args.push("--json");
+					if (action === "submit") args.push("--auto");
+					if (action === "init") {
+						const branch = (yield* run(folderId, cwd, [
+							"symbolic-ref",
+							"--short",
+							"HEAD",
+						])).trim();
+						args.push(branch);
+					}
+					if (action === "add") {
+						const branch = name?.trim() ?? "";
+						if (!branch || branch.startsWith("-") || branch.startsWith("@"))
+							return yield* Effect.fail(
+								new GitCommandError({
+									folderId,
+									reason: "Enter a valid branch name for the next stack layer.",
+								}),
+							);
+						yield* run(folderId, cwd, ["check-ref-format", "--branch", branch]);
+						args.push(branch);
+					}
+					const output = yield* ghRun(
+						folderId,
+						cwd,
+						args,
+						action === "submit" ? 300_000 : 5_000,
+					);
+					if (action !== "view")
+						return GitStackResult.make({ output, trunk: null, branches: [] });
+					const parsed = parseStackView(output);
+					if (parsed === null)
+						return yield* Effect.fail(
+							new GitCommandError({
+								folderId,
+								reason:
+									"GitHub CLI returned an unreadable stack. Update gh-stack and try again.",
+							}),
+						);
+					return parsed;
+				}),
+			);
+
 		const switchBranch: GitService["Service"]["switchBranch"] = (
 			folderId,
 			branch,
@@ -827,6 +881,7 @@ export const GitServiceLive = Layer.effect(
 			folderId: FolderId,
 			cwd: string,
 			args: ReadonlyArray<string>,
+			timeoutMs = 5_000,
 		) =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -844,12 +899,12 @@ export const GitServiceLive = Layer.effect(
 					);
 				}),
 			).pipe(
-				Effect.timeout("5 seconds"),
+				Effect.timeout(timeoutMs),
 				Effect.catchTag("TimeoutError", () =>
 					Effect.fail(
 						new GitCommandError({
 							folderId,
-							reason: "GitHub CLI timed out after 5 seconds",
+							reason: `GitHub CLI timed out after ${timeoutMs / 1000} seconds`,
 						}),
 					),
 				),
@@ -2807,6 +2862,7 @@ export const GitServiceLive = Layer.effect(
 			status,
 			branches,
 			switchBranch,
+			stack,
 			renameBranch,
 			getUserName,
 			workspaceChanges,

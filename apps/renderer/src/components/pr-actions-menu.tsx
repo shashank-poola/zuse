@@ -28,13 +28,16 @@ import {
 	gitWorkspaceResourceKey,
 	refreshGitWorkspace,
 } from "../lib/git-workspace-client-bus.ts";
+import {
+	pendingManualRepairCommand,
+	sendManualPrRepair,
+} from "../lib/manual-pr-repair.ts";
 import { openExternal } from "../lib/platform-capabilities.ts";
 import {
 	type PrRepairScope,
 	preparePrRepair,
 	prRepairMarkdown,
 } from "../lib/pr-repair.ts";
-import { sendSessionMessage } from "../lib/session-actions.ts";
 import {
 	getRendererClientBus,
 	sessionTimelineResourceKey,
@@ -42,6 +45,7 @@ import {
 import { useEnvironmentCatalogStore } from "../store/environment-catalog.ts";
 import { useMergePrefs } from "../store/merge-prefs.ts";
 import { useSessionsStore } from "../store/sessions.ts";
+import { PrWatchMenu } from "./pr-watch-menu.tsx";
 import {
 	Menu,
 	MenuItem,
@@ -129,6 +133,11 @@ export function PrActionsMenu({
 	const repair = (scope: PrRepairScope) =>
 		run(async () => {
 			if (!details || !sessionId) return;
+			const repairKey = JSON.stringify([details.url, details.headSha, scope]);
+			const retainedCommand = pendingManualRepairCommand(
+				{ environmentId: executionRef.environmentId, sessionId },
+				repairKey,
+			);
 			const input = await preparePrRepair(
 				executionRef,
 				sessionId,
@@ -156,15 +165,20 @@ export function PrActionsMenu({
 				timeline.data?.status !== "idle" ||
 				timeline.data.currentTurn !== null ||
 				timeline.data.queue.items.length > 0 ||
-				timeline.pendingCommands.length > 0
+				timeline.pendingCommands.some(
+					(command) => command.commandId !== retainedCommand,
+				)
 			)
 				throw new Error(uiMessage("projects:github_repair_state_changed"));
 
 			onChat();
-			await sendSessionMessage(
+			const accepted = await sendManualPrRepair(
 				{ environmentId: executionRef.environmentId, sessionId },
+				repairKey,
 				input,
 			);
+			if (!accepted)
+				throw new Error(uiMessage("projects:github_repair_send_failed"));
 		});
 	const comments = details
 		? [...details.comments, ...details.reviews].filter((item) =>
@@ -234,6 +248,11 @@ export function PrActionsMenu({
 						</MenuItem>
 					</MenuSubPopup>
 				</MenuSub>
+				<PrWatchMenu
+					executionRef={executionRef}
+					pr={pr}
+					sessionId={sessionId}
+				/>
 				{pr.state === "open" && !pr.isDraft ? (
 					<MenuSub>
 						<MenuSubTrigger disabled={busy}>

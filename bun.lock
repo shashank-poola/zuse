@@ -882,6 +882,7 @@
     "react-native-quick-crypto@0.7.17": "patches/react-native-quick-crypto@0.7.17.patch",
     "app-builder-lib@25.1.8": "patches/app-builder-lib@25.1.8.patch",
     "@effect/platform-node@4.0.0-beta.102": "patches/@effect%2Fplatform-node@4.0.0-beta.102.patch",
+    "effect@4.0.0-beta.102": "patches/effect@4.0.0-beta.102.patch",
   },
   "overrides": {
     "@effect/platform-node": "4.0.0-beta.102",

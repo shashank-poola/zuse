@@ -198,7 +198,12 @@ import {
 import { ProjectPlanTray } from "./composer/project-plan-tray.tsx";
 import { ProviderErrorTray } from "./composer/provider-error-tray.tsx";
 import { ProviderSignInTray } from "./composer/provider-sign-in-tray.tsx";
-import { QuestionTray, useQuestionAnswer } from "./composer/question-tray.tsx";
+import {
+	dismissExpiredQuestion,
+	QuestionTray,
+	selectAnswerableQuestion,
+	useQuestionAnswer,
+} from "./composer/question-tray.tsx";
 import { QueueTray } from "./composer/queue-tray.tsx";
 import { SlashCommandPopover } from "./composer/slash-command-popover.tsx";
 import {
@@ -471,7 +476,8 @@ export function ChatComposer({
 					submissionError: pendingQuestion.error,
 				},
 	);
-	const answeringQuestion = questionAnswer !== null;
+	const answerableQuestion = selectAnswerableQuestion(questionAnswer);
+	const answeringQuestion = answerableQuestion !== null;
 
 	const requestsById =
 		useEnvironmentPermissions(qualifiedEnvironmentId).data?.requestsById ??
@@ -1227,7 +1233,7 @@ export function ChatComposer({
 
 	/** While a question is pending, the composer text is its free-text answer. */
 	const submitQuestionAnswer = (
-		answer: NonNullable<typeof questionAnswer>,
+		answer: NonNullable<typeof answerableQuestion>,
 	): boolean => {
 		const view = editorViewRef.current;
 		if (view === null || trigger !== null || modelPickerOpen) return false;
@@ -1245,7 +1251,8 @@ export function ChatComposer({
 	};
 
 	const submit = (): boolean => {
-		if (questionAnswer !== null) return submitQuestionAnswer(questionAnswer);
+		if (answerableQuestion !== null)
+			return submitQuestionAnswer(answerableQuestion);
 		if (
 			composerSendBlocked(timeline.presentation.health, sendPlanFeedbackNow)
 		) {
@@ -1331,6 +1338,7 @@ export function ChatComposer({
 			useAnnotationsStore.getState().clear(sessionId);
 			editingQueuedItemRef.current = null;
 			setEditingQueuedItem(null);
+			dismissExpiredQuestion(questionAnswer);
 		};
 
 		if (onDraftSubmit !== undefined) {
@@ -1919,22 +1927,22 @@ export function ChatComposer({
 											session={session}
 										/>
 									) : null}
-									{questionAnswer !== null ? (
+									{answerableQuestion !== null ? (
 										<DitherButton
 											variant="gradient"
 											className="size-6 border border-primary/40 text-white"
 											onClick={() => void submit()}
 											disabled={
-												questionAnswer.busy ||
-												!questionAnswer.canAnswer(hasText)
+												answerableQuestion.busy ||
+												!answerableQuestion.canAnswer(hasText)
 											}
 											aria-label={uiMessage(
-												questionAnswer.last
+												answerableQuestion.last
 													? "chat:question_card_submit_answer"
 													: "chat:question_card_continue",
 											)}
 										>
-											{questionAnswer.busy ? (
+											{answerableQuestion.busy ? (
 												<Spinner className="size-3.5" />
 											) : (
 												<HugeiconsIcon icon={SentIcon} className="size-3.5" />

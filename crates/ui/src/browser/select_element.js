@@ -11,49 +11,64 @@ if (globalThis.zuseCancelSelection) globalThis.zuseCancelSelection();
 const host = document.createElement('div');
 host.dataset.zuseAnnotation = '';
 host.setAttribute('role', 'group');
-Object.assign(host.style, {position:'fixed',inset:'0',zIndex:'2147483647',pointerEvents:'none'});
+Object.assign(host.style, {all:'initial',position:'fixed',inset:'0',zIndex:'2147483647',pointerEvents:'none'});
 const root = host.attachShadow({mode:'closed'});
 const css = `
-  :host {font:12px/1.4 var(--font,system-ui)}
+  :host {font:12px/1.4 var(--font,system-ui,sans-serif);text-align:left;color-scheme:normal}
   * {box-sizing:border-box} [hidden] {display:none!important}
-  button {all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;height:26px;padding:0 8px;border-radius:6px;font:500 11px/1 var(--font,system-ui);white-space:nowrap;cursor:pointer;user-select:none}
+  button {all:unset;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;height:28px;padding:0 8px;border-radius:6px;font:500 11px/1 var(--font,system-ui,sans-serif);white-space:nowrap;cursor:pointer;user-select:none}
   button:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
-  .tools,.panel {color:var(--fg);background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 20px var(--shadow);pointer-events:auto}
-  .tools {position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:2px;flex-wrap:wrap;padding:4px;border-radius:8px}
-  .tools button {color:var(--muted)}.tools button:hover {background:var(--hover);color:var(--fg)}.tools button[aria-pressed=true] {color:var(--accent);background:var(--wash)}button:disabled {opacity:.4;cursor:default}
+  .tools,.panel {font:12px/1.4 var(--font,system-ui,sans-serif);text-align:left;color:var(--fg);background:var(--surface);border:1px solid var(--border);box-shadow:0 4px 20px var(--shadow);pointer-events:auto}
+  .tools {position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:30;display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;width:max-content;padding:6px;border-radius:10px}
+  .tool-group {display:flex;align-items:center;gap:2px}.tool-group + .tool-group {border-left:1px solid var(--border);padding-left:6px}
+  .tools .icon-button {width:28px;padding:0}.tools svg {width:15px;height:15px;pointer-events:none}
+  .tools button {color:var(--muted)}.tools button:hover:not(:disabled) {background:var(--hover);color:var(--fg)}.tools button[aria-pressed=true] {color:var(--on-accent,var(--on-primary));background:var(--accent-fill,var(--accent))}button:disabled {opacity:.4;cursor:default}
+  .tools .done {color:var(--on-primary);background:var(--primary);padding:0 10px}.tools .done:hover {color:var(--on-primary);background:var(--primary);opacity:.9}
   .shapes {position:fixed;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
   .outline {position:fixed;border:1px solid var(--accent);background:var(--hover-wash);pointer-events:none;border-radius:3px}
-  .pin {position:fixed;z-index:20;width:22px;height:22px;padding:0;border-radius:50%;color:var(--on-primary);background:var(--primary);border:2px solid var(--surface);box-shadow:0 1px 5px var(--shadow);pointer-events:auto;font-weight:600}
+  .pin {position:fixed;z-index:20;min-width:22px;height:22px;padding:0;border-radius:11px;color:var(--on-primary);background:var(--primary);border:2px solid var(--surface);box-shadow:0 1px 5px var(--shadow);pointer-events:auto;font-weight:600;gap:4px}
+  .pin-number {min-width:18px;text-align:center}.pin-tag {max-width:96px;overflow:hidden;text-overflow:ellipsis;padding-right:6px;font-weight:500}
   .pin[aria-pressed=true] {outline:2px solid var(--accent);outline-offset:1px}
-  .panel {position:relative;width:100%;padding:10px;border-radius:9px}
-  .heading {display:flex;align-items:center;gap:6px;height:20px;margin-bottom:3px;font-size:11px;color:var(--muted)}
-  .number {font-weight:600;color:var(--fg)}.anchor {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .target-label {position:fixed;z-index:20;max-width:160px;padding:2px 6px;border-radius:4px;background:var(--accent-fill,var(--accent));color:var(--on-accent,var(--on-primary));font:500 11px/16px var(--font,system-ui,sans-serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .panel {position:relative;display:flex;flex-direction:column;width:100%;max-height:inherit;padding:10px;border-radius:10px;overflow-y:auto;overscroll-behavior:contain}
+  .heading {display:flex;align-items:center;flex-shrink:0;gap:6px;min-height:22px;margin-bottom:4px;font-size:11px;color:var(--muted)}
+  .number {display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:5px;background:var(--hover);font-weight:600;color:var(--fg)}.anchor {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .close {width:22px;height:22px;padding:0;color:var(--muted);background:transparent;font-size:18px;font-weight:400}.close:hover {color:var(--fg);background:var(--hover)}
-  textarea {all:unset;box-sizing:border-box;display:block;width:100%;height:36px;min-height:36px;max-height:108px;padding:6px 2px;overflow-y:auto;resize:none;background:transparent;color:var(--fg);caret-color:var(--fg);font:12px/18px var(--font,system-ui);white-space:pre-wrap;overflow-wrap:break-word;cursor:text;user-select:text;-webkit-user-select:text}
+  textarea {all:unset;box-sizing:border-box;display:block;width:100%;height:44px;min-height:36px;max-height:108px;padding:4px 2px;overflow-y:auto;resize:none;background:transparent;color:var(--fg);caret-color:var(--fg);font:13px/18px var(--font,system-ui,sans-serif);white-space:pre-wrap;overflow-wrap:break-word;cursor:text;user-select:text;-webkit-user-select:text}
   textarea::placeholder {color:var(--muted)}
-  .actions {display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
-  .status {font-size:10px;color:var(--muted);white-space:nowrap}
+  .actions {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
+  .status {margin-right:auto;font-size:10px;color:var(--muted);white-space:nowrap}
   .add {background:var(--primary);color:var(--on-primary)}.add:hover:not(:disabled) {opacity:.9}
 `;
 const sheet = document.createElement('style'); sheet.textContent = css;
 const svg = document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','shapes');
 const hover = document.createElement('div'); hover.className = 'outline';
+const hoverLabel = document.createElement('div'); hoverLabel.className = 'target-label';
 const pins = document.createElement('div');
 const tools = document.createElement('div'); tools.className = 'tools'; tools.setAttribute('role','toolbar'); tools.setAttribute('aria-label','Annotation tools');
 const slot = document.createElement('slot');
-root.append(sheet,svg,hover,pins,tools,slot);
+root.append(sheet,svg,hover,hoverLabel,pins,tools,slot);
 document.documentElement.append(host);
 let notes = [], history = [], drag = null, hovered = null, activeId = null, mode = 'select', sequence = 0;
 let closed = false, waiter = null, queue = [], scale = displayScale, focusFrame = null;
 const buttons = new Map();
-for (const [id,label] of [['select','Select'],['region','Region'],['draw','Draw'],['erase','Erase']]) {
-  const button = document.createElement('button'); button.textContent = label; button.setAttribute('aria-label',label);
-  button.addEventListener('click',()=>setTool(id)); tools.append(button); buttons.set(id,button);
+// Keep tools and history in separate groups, like the native screenshot bar.
+function iconButton(label, path) {
+  const button=document.createElement('button');button.className='icon-button';button.title=label;button.setAttribute('aria-label',label);
+  const icon=document.createElementNS(svg.namespaceURI,'svg');icon.setAttribute('viewBox','0 0 24 24');icon.setAttribute('fill','none');icon.setAttribute('stroke','currentColor');icon.setAttribute('stroke-width','1.7');icon.setAttribute('stroke-linecap','round');icon.setAttribute('stroke-linejoin','round');icon.setAttribute('aria-hidden','true');
+  const shape=document.createElementNS(svg.namespaceURI,'path');shape.setAttribute('d',path);icon.append(shape);button.append(icon);return button;
 }
-const undo = document.createElement('button'); undo.textContent = '↶'; undo.title = 'Undo annotation'; undo.setAttribute('aria-label','Undo annotation');
-const clear = document.createElement('button'); clear.textContent = 'Clear'; clear.setAttribute('aria-label','Clear annotation targets');
-const done = document.createElement('button'); done.textContent = 'Done'; done.setAttribute('aria-label','Finish annotating');
-tools.append(undo,clear,done);
+const toolIcons={select:'M4 3v16l4-4 3 6 3-1-3-6h6L4 3Z',region:'M8 4H4v4m12-4h4v4M4 16v4h4m12-4v4h-4M8 4h1m6 0h1M4 11v2m16-2v2M11 20h2',draw:'m4 16-1 5 5-1L20 8a2.8 2.8 0 0 0-4-4L4 16Zm10-10 4 4M4 16l4 4',erase:'m14 4 6 6a2 2 0 0 1 0 3l-8 8H7l-4-4a2 2 0 0 1 0-3l10-10a1 1 0 0 1 1 0ZM8 9l9 9m-5 3h9'};
+const modes=document.createElement('div');modes.className='tool-group';
+const historyTools=document.createElement('div');historyTools.className='tool-group';
+for (const [id,label] of [['select','Select'],['region','Region'],['draw','Draw'],['erase','Erase']]) {
+  const button = iconButton(label,toolIcons[id]);button.title=`${label} (${buttons.size+1})`;
+  button.addEventListener('click',()=>setTool(id)); modes.append(button); buttons.set(id,button);
+}
+const undo = iconButton('Undo annotation','M9 4 4 9l5 5M4 9h9a6 6 0 0 1 0 12');
+const clear = iconButton('Clear annotation targets','M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7');
+const done = document.createElement('button'); done.className='done';done.textContent = 'Done'; done.setAttribute('aria-label','Finish annotating');
+historyTools.append(undo,clear);tools.append(modes,historyTools,done);
 function configure(theme, nextScale) {
   for (const [name,value] of Object.entries(theme)) if (name.startsWith('--') && typeof value === 'string') host.style.setProperty(name,value);
   scale = nextScale || scale; layout();
@@ -136,10 +151,12 @@ function createNote(kind, target) {
   const status=document.createElement('span');status.className='status';
   const add=document.createElement('button');add.className='add';add.textContent='Add to composer';add.setAttribute('aria-label',`Add annotation ${number} to composer`);
   actions.append(status,add);panel.append(header,input,actions);editorRoot.append(editorStyle,panel);
-  const pin=document.createElement('button');pin.className='pin';pin.textContent=String(number);pin.setAttribute('aria-label',`Edit annotation ${number}`);pin.title=`Annotation ${number}`;
+  const pin=document.createElement('button');pin.className='pin';pin.setAttribute('aria-label',`Edit annotation ${number}`);pin.title=`Annotation ${number}: ${anchor.textContent}`;
+  const pinNumber=document.createElement('span');pinNumber.className='pin-number';pinNumber.textContent=String(number);pin.append(pinNumber);
+  if(kind==='element') {const tag=document.createElement('span');tag.className='pin-tag';tag.textContent=target.localName;pin.append(tag);}
   Object.assign(note,{editor,root:editorRoot,input,add,status,pin});
   editorRoot.addEventListener('pointerdown',()=>{activeId=note.id;for(const other of notes) {other.editor.style.zIndex=other===note?'15':'10';other.pin.setAttribute('aria-pressed',String(other===note));}});
-  input.addEventListener('input',()=>{input.style.height='0px';input.style.height=Math.min(108,Math.max(36,input.scrollHeight))+'px';layout();});
+  input.addEventListener('input',()=>{input.style.height='0px';input.style.height=Math.min(108,Math.max(44,input.scrollHeight))+'px';layout();});
   input.addEventListener('keydown',event=>{
     if(event.key==='Enter' && !event.shiftKey && !event.isComposing) {event.preventDefault();commit(note);}
     event.stopPropagation();
@@ -155,9 +172,10 @@ function commit(note) {
 }
 function layout() {
   if(closed) return;
-  const u=uiScale(), available=Math.max(120,innerWidth/u-16);
+  const u=uiScale(), viewportWidth=innerWidth/u, viewportHeight=innerHeight/u, available=Math.max(120,viewportWidth-16);
   host.setAttribute('aria-label',`Browser annotations: ${mode}, ${notes.length} targets${editing()?', comment editor':''}`);
   tools.style.zoom=String(u);tools.style.maxWidth=available+'px';
+  const contentTop=tools.getBoundingClientRect().bottom/u+8;
   for(const [id,button] of buttons) button.setAttribute('aria-pressed',String(id===mode));
   undo.disabled=!history.length;clear.disabled=!notes.length;
   const group=document.createElementNS(svg.namespaceURI,'g');group.setAttribute('transform',`translate(${-scrollX} ${-scrollY})`);
@@ -173,16 +191,17 @@ function layout() {
     const r=rect(note);
     if(note.kind==='draw')drawPath(note.stroke.points);else drawRect({x:r.x+scrollX,y:r.y+scrollY,width:r.width,height:r.height});
     if(!note.editor.isConnected)host.append(note.editor);if(!note.pin.isConnected)pins.append(note.pin);
-    note.pin.style.zoom=String(u);note.pin.style.left=Math.max(2,r.x/u-10)+'px';note.pin.style.top=Math.max(2,r.y/u-10)+'px';note.pin.setAttribute('aria-pressed',String(activeId===note.id));
-    note.editor.hidden=!note.open;note.editor.style.display=note.open?'block':'none';note.editor.style.zoom=String(u);note.editor.style.width=Math.min(304,available)+'px';note.editor.style.zIndex=activeId===note.id?'15':'10';
+    note.pin.style.zoom=String(u);note.pin.style.left=Math.max(2,Math.min(r.x/u-10,viewportWidth-note.pin.getBoundingClientRect().width/u-2))+'px';note.pin.style.top=Math.max(2,Math.min(r.y/u-10,viewportHeight-24))+'px';note.pin.setAttribute('aria-pressed',String(activeId===note.id));
+    note.editor.hidden=!note.open;note.editor.style.display=note.open?'block':'none';note.editor.style.zoom=String(u);note.editor.style.width=Math.min(304,available)+'px';note.editor.style.maxHeight=Math.max(0,viewportHeight-contentTop-8)+'px';note.editor.style.zIndex=activeId===note.id?'15':'10';
     const dirty=note.submitted===null || JSON.parse(note.submitted).comment!==note.input.value.trim();
     note.add.disabled=!note.input.value.trim()||!dirty;note.add.textContent=note.submitted?'Update in composer':'Add to composer';note.status.textContent=note.submitted?(dirty?'Edited':'Added'):'↵ to add';
     // Anchor directly below this mark. Only flip above when the viewport has
     // no room; resizing or focusing another note never rebuilds its textarea.
     const width=note.editor.getBoundingClientRect().width/u, height=note.editor.getBoundingClientRect().height/u;
-    const left=Math.max(8,Math.min(r.x/u,innerWidth/u-width-8));
+    const left=Math.max(8,Math.min(r.x/u,viewportWidth-width-8));
     let top=(r.y+r.height)/u+8;
-    if(top+height>innerHeight/u-8)top=Math.max(8,r.y/u-height-8);
+    if(top+height>viewportHeight-8)top=r.y/u-height-8;
+    top=Math.max(contentTop,Math.min(top,viewportHeight-height-8));
     note.editor.style.left=left+'px';note.editor.style.top=top+'px';
   }
   if(drag?.kind==='region')drawRect(box(drag.start,drag.end));
@@ -190,7 +209,12 @@ function layout() {
   svg.replaceChildren(group);
   const valid=mode==='select' && hovered?.isConnected && !notes.some(note=>note.node===hovered);
   hover.hidden=!valid;
-  if(valid) {const r=hovered.getBoundingClientRect();Object.assign(hover.style,{left:r.x+'px',top:r.y+'px',width:r.width+'px',height:r.height+'px',borderWidth:String(u)+'px'});}
+  hoverLabel.hidden=!valid;
+  if(valid) {
+    const r=hovered.getBoundingClientRect();Object.assign(hover.style,{left:r.x+'px',top:r.y+'px',width:r.width+'px',height:r.height+'px',borderWidth:String(u)+'px'});
+    hoverLabel.textContent=hovered.localName;hoverLabel.style.zoom=String(u);
+    hoverLabel.style.left=Math.max(2,Math.min(r.x/u,viewportWidth-hoverLabel.getBoundingClientRect().width/u-2))+'px';hoverLabel.style.top=Math.max(2,r.y/u-22)+'px';
+  }
 }
 function hit(p,r) {return p.x>=r.x && p.y>=r.y && p.x<=r.x+r.width && p.y<=r.y+r.height;}
 function down(event) {
@@ -205,7 +229,8 @@ function down(event) {
 }
 function move(event) {
   if(drag) {stop(event);const p=point(event);drag.end=p;const last=drag.points[drag.points.length-1];if(drag.kind==='draw'&&drag.points.length<2048&&Math.hypot(p.x-last.x,p.y-last.y)>=1)drag.points.push(p);layout();return;}
-  if(own(event))return;hovered=event.target instanceof Element?event.target:null;layout();
+  const target=mode==='select'&&!own(event)&&event.target instanceof Element?event.target:null;
+  if(target!==hovered) {hovered=target;layout();}
 }
 function up(event) {
   if(own(event)&&!drag)return;stop(event);

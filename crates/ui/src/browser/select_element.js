@@ -30,11 +30,11 @@ const css = `
   .pin-number {min-width:18px;text-align:center}.pin-tag {max-width:96px;overflow:hidden;text-overflow:ellipsis;padding-right:6px;font-weight:500}
   .pin[aria-pressed=true] {outline:2px solid var(--accent);outline-offset:1px}
   .target-label {position:fixed;z-index:20;max-width:160px;padding:2px 6px;border-radius:4px;background:var(--accent-fill,var(--accent));color:var(--on-accent,var(--on-primary));font:500 11px/16px var(--font,system-ui,sans-serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .panel {position:relative;display:flex;flex-direction:column;width:100%;max-height:inherit;padding:8px;border-radius:10px;overflow-y:auto;overscroll-behavior:contain}
+  .panel {position:relative;display:flex;flex-direction:column;width:100%;max-height:inherit;padding:10px;border-radius:10px;overflow-y:auto;overscroll-behavior:contain}
   .heading {display:flex;align-items:center;flex-shrink:0;gap:6px;min-height:22px;margin-bottom:4px;font-size:11px;color:var(--muted)}
   .number {display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:5px;background:var(--hover);font-weight:600;color:var(--fg)}.anchor {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .close {width:22px;height:22px;padding:0;color:var(--muted);background:transparent;font-size:18px;font-weight:400}.close:hover {color:var(--fg);background:var(--hover)}
-  textarea {all:unset;box-sizing:border-box;display:block;width:100%;height:44px;min-height:36px;max-height:108px;padding:4px 2px;overflow-y:auto;resize:none;background:transparent;color:var(--fg);caret-color:var(--fg);font:12px/18px var(--font,system-ui,sans-serif);white-space:pre-wrap;overflow-wrap:break-word;cursor:text;user-select:text;-webkit-user-select:text}
+  textarea {all:unset;box-sizing:border-box;display:block;width:100%;height:44px;min-height:36px;max-height:108px;padding:4px 2px;overflow-y:auto;resize:none;background:transparent;color:var(--fg);caret-color:var(--fg);font:13px/18px var(--font,system-ui,sans-serif);white-space:pre-wrap;overflow-wrap:break-word;cursor:text;user-select:text;-webkit-user-select:text}
   textarea::placeholder {color:var(--muted)}
   .actions {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;flex-shrink:0;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
   .status {margin-right:auto;font-size:10px;color:var(--muted);white-space:nowrap}

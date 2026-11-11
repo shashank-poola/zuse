@@ -100,7 +100,8 @@ def main(helper):
                    "--border":"#dddddd","--hover":"#eeeeee","--accent":"#6750a4",
                    "--wash":"#6750a420","--hover-wash":"#6750a410","--primary":"#242424",
                    "--on-primary":"#ffffff","--shadow":"#00000020","--font":"system-ui"}
-        source = Path("crates/ui/src/browser/select_element.js").read_text()
+        source = Path("crates/ui/src/browser/select_element.js").read_text().replace(
+            "attachShadow({mode:'closed'})", "attachShadow({mode:'open'})")
 
         def pull(generation):
             script = f"const zuseAnnotationGeneration = {generation};\nconst zuseAnnotationTheme = " + json.dumps(palette) + ";\n" + source
@@ -142,10 +143,10 @@ def main(helper):
 
         def focus_note(index, prefix=None):
             time.sleep(.15)
-            r=note_rect(index)
-            u=page_scale/js("devicePixelRatio")
-            width=0 if prefix is None else js(f"(()=>{{let c=document.createElement('canvas').getContext('2d');c.font='12px system-ui';return c.measureText({json.dumps(prefix)}).width}})()")
-            x,y=r[0]+(13+width)*u,r[1]+49*u
+            x,y=js(f"""(()=>{{let e=document.querySelectorAll('[data-zuse-note]')[{index}].shadowRoot.querySelector('textarea');
+                let r=e.getBoundingClientRect(),c=document.createElement('canvas').getContext('2d'),style=getComputedStyle(e);
+                c.font=style.fontSize+' '+style.fontFamily;let width=c.measureText({json.dumps(prefix or '')}).width;
+                let scale={page_scale}/devicePixelRatio;return [r.left+(2+width)*scale,r.top+10*scale]}})()""")
             click(x,y)
             until(lambda: js(f"document.activeElement === document.querySelectorAll('[data-zuse-note]')[{index}]"))
 
@@ -175,8 +176,14 @@ def main(helper):
             send("load",url=url)
             until(lambda: js("document.querySelector('#pick') !== null"))
             begin(1)
+            toolbar=js("""(()=>{let t=document.querySelector('[data-zuse-annotation]').shadowRoot.querySelector('.tools');
+                let r=t.getBoundingClientRect();return {left:r.left,right:r.right,rows:[...t.querySelectorAll('button')].map(b=>b.getBoundingClientRect().top)}})()""")
+            assert toolbar['left']>=0 and toolbar['right']<=js('innerWidth'),toolbar
+            assert len(set(toolbar['rows']))==1,toolbar
             click_element('#pick')
             until(lambda: js("!!document.activeElement?.hasAttribute('data-zuse-note')"))
+            assert js("document.querySelector('[data-zuse-annotation]').shadowRoot.querySelector('.pin-tag').textContent")=='button'
+            assert 'system-ui' in js("getComputedStyle(document.querySelector('[data-zuse-note]').shadowRoot.querySelector('.anchor')).fontFamily")
             type_keys('hello world')
             # Pointer placement inside existing text must move the real caret.
             focus_note(0,'hello')

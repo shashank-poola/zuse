@@ -32,6 +32,8 @@ fn annotation_palette(theme: &crate::theme::Theme) -> serde_json::Value {
         "--border": theme.border.to_string(),
         "--hover": theme.element_hover.to_string(),
         "--accent": theme.accent.to_string(),
+        "--accent-fill": theme.accent_strong.to_string(),
+        "--on-accent": theme.on_accent.to_string(),
         "--wash": theme.accent_wash.to_string(),
         "--hover-wash": theme.accent.opacity(0.04).to_string(),
         "--primary": theme.solid.to_string(),
@@ -558,6 +560,16 @@ impl BrowserSurface {
         }
     }
 
+    fn open_toolbar_menu(&mut self, cx: &mut Context<Self>) {
+        #[cfg(any(target_os = "macos", target_os = "linux", windows))]
+        {
+            self.cancel_selection();
+            self.screenshot = None;
+        }
+        self.toolbar_menu.open(());
+        cx.notify();
+    }
+
     fn close_toolbar_menu(&mut self, cx: &mut Context<Self>) {
         #[cfg(any(target_os = "macos", target_os = "linux", windows))]
         {
@@ -584,6 +596,8 @@ impl BrowserSurface {
 
     #[cfg(any(target_os = "macos", target_os = "linux", windows))]
     fn toggle_select_element(&mut self, cx: &mut Context<Self>) {
+        self.close_toolbar_menu(cx);
+        self.screenshot = None;
         if self.selecting_element {
             self.cancel_selection();
         } else if let (Some(native), Some(url)) = (&self.native, &self.page.url) {
@@ -600,16 +614,20 @@ impl BrowserSurface {
 
     #[cfg(any(target_os = "macos", target_os = "linux", windows))]
     fn toggle_devtools(&mut self, cx: &mut Context<Self>) {
+        self.cancel_selection();
+        self.close_toolbar_menu(cx);
         if let Some(native) = &self.native {
             if let Err(message) = native.toggle_devtools() {
                 crate::toast::info(cx, message);
             }
         }
+        cx.notify();
     }
 
     /// Freeze the page and open the markup editor over it.
     #[cfg(any(target_os = "macos", target_os = "linux", windows))]
     fn take_screenshot(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.cancel_selection();
         self.close_toolbar_menu(cx);
         // macOS captures asynchronously; `Captured` opens the editor.
         #[cfg(target_os = "macos")]
@@ -1045,6 +1063,7 @@ impl BrowserContext {
 #[cfg(feature = "browser-fixture")]
 impl BrowserSurface {
     pub fn fixture_annotate(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_markup(window, cx);
         window.focus(&self.focus, cx);
         self.toggle_select_element(cx);
     }
@@ -1155,6 +1174,8 @@ mod tests {
             assert_eq!(palette["--fg"], theme.text.to_string());
             assert_eq!(palette["--muted"], theme.text_muted.to_string());
             assert_eq!(palette["--accent"], theme.accent.to_string());
+            assert_eq!(palette["--accent-fill"], theme.accent_strong.to_string());
+            assert_eq!(palette["--on-accent"], theme.on_accent.to_string());
             assert_eq!(palette["--primary"], theme.solid.to_string());
             assert_eq!(palette["--on-primary"], theme.on_solid.to_string());
             let script = annotation_script(&theme, 1);
@@ -1247,9 +1268,18 @@ mod tests {
         let (browser, cx) = cx.add_window_view(|window, cx| {
             BrowserSurface::new(BrowserContext::default(), false, window, cx)
         });
+        browser.update(cx, |browser, _| {
+            browser.selecting_element = true;
+            browser.selection_generation = 7;
+        });
         cx.update(|window, cx| window.draw(cx).clear());
         let options = cx.debug_bounds("browser-options").unwrap().center();
         cx.simulate_click(options, gpui::Modifiers::default());
+        browser.read_with(cx, |browser, _| {
+            assert!(!browser.selecting_element);
+            assert_eq!(browser.selection_generation, 8);
+            assert!(browser.toolbar_menu.is_open());
+        });
         cx.update(|window, cx| window.draw(cx).clear());
         let appearance = cx
             .debug_bounds("browser-appearance-hover")
@@ -1274,6 +1304,15 @@ mod tests {
                 crate::settings::current(cx).browser_appearance,
                 crate::appearance::AppearanceMode::Dark
             );
+        });
+        browser.update(cx, |browser, cx| {
+            browser.selecting_element = true;
+            browser.toggle_devtools(cx);
+            assert!(!browser.selecting_element);
+            assert_eq!(browser.selection_generation, 9);
+            browser.open_toolbar_menu(cx);
+            browser.toggle_select_element(cx);
+            assert!(!browser.toolbar_menu.is_open());
         });
     }
 

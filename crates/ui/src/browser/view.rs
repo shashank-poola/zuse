@@ -992,6 +992,7 @@ impl Render for BrowserSurface {
         .when(self.selecting_element, |el| el.bg(crate::theme::wash(0.10)))
         .when(has_page, |el| {
             el.on_click(cx.listener(|this, _, window, cx| {
+                this.close_markup(window, cx);
                 window.focus(&this.focus, cx);
                 this.toggle_select_element(cx);
             }))
@@ -1029,12 +1030,7 @@ impl Render for BrowserSurface {
             if this.toolbar_menu.take_press_was_open() {
                 this.close_toolbar_menu(cx);
             } else {
-                this.toolbar_menu.open(());
-                #[cfg(any(target_os = "macos", target_os = "linux", windows))]
-                {
-                    this.screenshot = None;
-                }
-                cx.notify();
+                this.open_toolbar_menu(cx);
             }
         }));
         let menu_trigger = if self.toolbar_menu.get().is_some() {

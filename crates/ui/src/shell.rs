@@ -2653,11 +2653,6 @@ impl Shell {
         let transcript = cx.new(|cx| Transcript::new(state.clone(), cx));
         transcript.update(cx, |transcript, _| transcript.retain_for_route_exit());
         let composer = cx.new(|cx| Composer::new(state.clone(), cx));
-        let shell = cx.entity();
-        let branch_controls = cx.new(|cx| top_bar::ComposerBranch::new(shell, cx));
-        composer.update(cx, |composer, _| {
-            composer.checkout_controls = Some(branch_controls.into());
-        });
         let voice = cx.new(|_| crate::voice::VoiceController::default());
         let voice_stage_orb = cx.new(|_| {
             crate::orb::Orb::new()
@@ -10950,10 +10945,10 @@ impl Shell {
                 row(
                     "sidebar-new-chat-row",
                     icons::DITHER_CHAT,
-                    "New chat",
+                    "New thread",
                     false,
                 )
-                .aria_label(tr(cx, msg::chat::chat_view_new_chat))
+                .aria_label("New thread")
                 .on_click(cx.listener(|this, _, _, cx| this.open_new_session(None, cx)))
                 .when(!new_chat_hint.is_empty(), |el| {
                     el.child(

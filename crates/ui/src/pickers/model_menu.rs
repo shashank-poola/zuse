@@ -141,6 +141,11 @@ impl Pickers {
                 }
             }
         }
+        // Catalogs can contain repeated entries for the same model ID. Keep
+        // separate IDs, but make same-named choices distinguishable below.
+        let mut seen = std::collections::HashSet::new();
+        rows.retain(|row| seen.insert((row.harness, row.model.id.clone())));
+        mark_ambiguous(&mut rows);
         rows
     }
     fn reference_items(&self, cx: &App) -> (Arc<Vec<Item>>, f32) {
@@ -206,10 +211,10 @@ impl Pickers {
                 items.push(Item::Row {
                     row: row.clone(),
                     index,
-                    provider,
+                    provider: provider || row.ambiguous,
                     bottom,
                 });
-                height += if provider {
+                height += if provider || row.ambiguous {
                     ui::PROVIDER_ROW_HEIGHT
                 } else {
                     ui::ROW_HEIGHT
@@ -303,7 +308,11 @@ impl Pickers {
                         ui::model_row(
                             ("model-row", index),
                             row.model.label.clone(),
-                            provider.then(|| row.harness_name.clone()),
+                            if row.ambiguous {
+                                Some(SharedString::from(row.model.id.clone()))
+                            } else {
+                                provider.then(|| row.harness_name.clone())
+                            },
                             crate::icons::brand_icon(path, 16., tint),
                             selected,
                             self.compact_keyboard && self.active == index,

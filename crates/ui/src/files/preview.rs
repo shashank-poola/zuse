@@ -2406,8 +2406,8 @@ impl FilesSurface {
                 crumbs = crumbs.child(
                     div()
                         .mx(px(4.0))
-                        .text_size(px(11.0))
-                        .text_color(theme.text_faint.opacity(0.65))
+                        .text_size(px(13.0))
+                        .text_color(theme.text_muted.opacity(0.75))
                         .child("›"),
                 );
             }
@@ -2416,11 +2416,11 @@ impl FilesSurface {
                     .min_w_0()
                     .truncate()
                     .font_family(theme.font_sans.clone())
-                    .text_size(px(11.0))
+                    .text_size(px(13.0))
                     .text_color(if index + 1 == parts.len() {
                         theme.text_muted
                     } else {
-                        theme.text_faint
+                        theme.text_muted
                     })
                     .child((*part).to_string()),
             );

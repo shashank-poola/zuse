@@ -286,15 +286,15 @@ fn input_drag_scroll_delta(
 }
 
 /// Staged-attachment strip metrics (zuse attachment-ui.tsx AttachmentStrip:
-/// `flex flex-wrap gap-2 px-4 pt-3`, `size-14` thumbs).
-pub const STRIP_THUMB: f32 = 56.0;
+/// `flex flex-wrap gap-2 px-4 pt-3`, 64px thumbs).
+pub const STRIP_THUMB: f32 = 64.0;
 pub const STRIP_GAP: f32 = 8.0;
 pub const STRIP_PAD_TOP: f32 = 12.0;
 pub const STRIP_PAD_X: f32 = 16.0;
 
 /// Height the wrap strip adds to the pill for `count` staged thumbnails at an
 /// `inner_width` pill content width (0 when empty). Mirrors flex-wrap: as many
-/// 56px thumbs per row as fit with 8px gaps inside the 16px side insets.
+/// 64px thumbs per row as fit with 8px gaps inside the 16px side insets.
 pub fn attachment_strip_height(count: usize, inner_width: f32) -> f32 {
     if count == 0 {
         return 0.0;
@@ -6776,7 +6776,6 @@ pub struct Composer {
     /// The host's latest worktree phase for a just-sent chat (fetching the
     /// base, creating the checkout), shown above the composer while it runs.
     worktree_progress: Option<(String, zuse_protocol::WorktreeProgress)>,
-    pub(crate) checkout_controls: Option<gpui::AnyView>,
 }
 
 /// Drafts cleared with Escape twice that Up can still bring back.
@@ -7163,7 +7162,10 @@ impl Composer {
 
     /// The auto-fix button for the selected chat's open PR, kept for as long
     /// as the chat and PR stay the same so its watch stream survives renders.
-    fn pr_auto_fix_button(&mut self, cx: &mut Context<Self>) -> Option<gpui::AnyElement> {
+    pub(crate) fn pr_auto_fix_button(
+        &mut self,
+        cx: &mut Context<Self>,
+    ) -> Option<gpui::AnyElement> {
         let open = {
             let state = self.state.read(cx);
             state
@@ -7190,11 +7192,12 @@ impl Composer {
         {
             let state = self.state.clone();
             let control = cx.new(|cx| {
-                crate::pr_watch::PrWatchControl::button(
+                crate::pr_watch::PrWatchControl::new(
                     state,
                     chat.clone(),
                     url.clone(),
                     target,
+                    true,
                     cx,
                 )
             });
@@ -7495,7 +7498,6 @@ impl Composer {
             flash: None,
             flash_seq: 0,
             worktree_progress: None,
-            checkout_controls: None,
         };
         // Dev knob: pre-stage attachments (drop/paste can't be synthesized on
         // a rig) — `ZUSE_ATTACH=/path/a.png[,/path/b.png]`, and
@@ -13426,49 +13428,6 @@ impl Render for Composer {
         // On the new-chat canvas the rows ride inside the selector tray, above
         // its chips (one attached surface growing upward); in a thread they
         // form their own surface tucked behind the card's top edge.
-        // The chat's pull request and diff size, above everything else.
-        let auto_fix = (!new_chat).then(|| self.pr_auto_fix_button(cx)).flatten();
-        let chips = (!new_chat)
-            .then(|| {
-                let theme = Theme::of(cx).clone();
-                crate::pull_request_card::composer_chips(self.state.read(cx), &theme, auto_fix, cx)
-            })
-            .flatten();
-        let checkout = (!new_chat
-            && self.state.read(cx).selected_chat_row().is_some_and(|chat| {
-                crate::change_requests::conversation_branch(chat, &self.state.read(cx).spaces)
-                    .is_some()
-            }))
-        .then(|| self.checkout_controls.clone())
-        .flatten();
-        let container = if chips.is_some() || checkout.is_some() {
-            container.child(
-                div()
-                    .w_full()
-                    .min_w_0()
-                    .flex()
-                    .items_center()
-                    .gap(px(6.0))
-                    .children(chips)
-                    .child(div().flex_1())
-                    .when_some(checkout, |row, checkout| {
-                        row.child(
-                            div()
-                                .min_w_0()
-                                .max_w(px((self
-                                    .last_available_width
-                                    .unwrap_or(COMPOSER_MAX_WIDTH)
-                                    - 2.0 * COMPOSER_OUTER_PAD)
-                                    * 0.45))
-                                .flex()
-                                .items_center()
-                                .child(checkout),
-                        )
-                    }),
-            )
-        } else {
-            container
-        };
         let embed_tray = new_chat && !self.cloud_launch_pending(cx);
         let tray_stack = self.render_tray_stack(show_queue_latest_shortcut, embed_tray, window, cx);
         let (embedded_tray, tray_stack) = if embed_tray {
@@ -13525,18 +13484,23 @@ impl Render for Composer {
         // Steady state renders exactly the target. Staged attachments add the
         // wrap strip's height above the editor (attachment-ui.tsx
         // AttachmentStrip).
-        // Staged images and annotations live in the tray above the card;
-        // only appshot cards still grow the card itself.
+        // Image thumbnails and appshot cards grow the card above the editor.
         let strip_width_hint = self.last_available_width.unwrap_or(COMPOSER_MAX_WIDTH)
             - 2.0 * COMPOSER_OUTER_PAD
             - 2.0;
         let appshot_count = self.staged_appshots().len();
+        let image_count = self
+            .staged()
+            .iter()
+            .filter(|att| att.image().is_some())
+            .count();
+        let image_strip_height = attachment_strip_height(image_count, strip_width_hint);
         let base_height = if self.dock_frame.is_some() {
             dock_layout.height(dock_amount)
         } else {
             composer_total_height(content_height)
         };
-        let extra_height = appshot_strip_height(appshot_count);
+        let extra_height = appshot_strip_height(appshot_count) + image_strip_height;
         let target_height = base_height + extra_height;
         dock_layout.extra_height = extra_height;
         let dock_owns_layout = self.dock_frame.is_some_and(|frame| frame.active)
@@ -13610,11 +13574,8 @@ impl Render for Composer {
         });
         let text_pt = TEXT_TOP_PAD;
         let surface_radius = COMPOSER_RADIUS;
-        let textarea_height = (pill_height
-            - appshot_strip_height(appshot_count)
-            - PILL_BORDER_V
-            - ACTIONS_ROW_HEIGHT)
-            .max(0.0);
+        let textarea_height =
+            (pill_height - extra_height - PILL_BORDER_V - ACTIONS_ROW_HEIGHT).max(0.0);
         self.input.update(cx, |input, cx| {
             let height = (textarea_height - text_pt - 4.0).max(0.0);
             let settled_height =
@@ -13664,6 +13625,7 @@ impl Render for Composer {
         // model picker.
         let attach = div()
             .id("composer-attach")
+            .debug_selector(|| "composer-attach".into())
             .track_focus(&self.add_button_focus)
             .size(px(28.0))
             .flex_none()
@@ -13772,14 +13734,21 @@ impl Render for Composer {
                 )
             });
         // The menu anchors beside the button, outside its click target.
-        let attach = div()
-            .relative()
-            .flex_none()
-            .child(attach)
-            .when(self.add_menu_open && !dictating, |el| {
-                el.child(self.render_add_menu(&theme, cx))
-            });
+        let attach = div().relative().flex_none().child(attach).when(
+            self.add_menu_open && !dictating,
+            |el| {
+                el.child(
+                    div()
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .size_0()
+                        .child(self.render_add_menu(&theme, cx)),
+                )
+            },
+        );
         let appshot_strip = self.render_appshot_strip(&theme, window, cx);
+        let image_strip = self.render_image_strip(&theme, cx);
 
         let pill_border = theme.composer_glass_border();
         // The glass card: a near-opaque tint over the blurred transcript.
@@ -13970,6 +13939,7 @@ impl Render for Composer {
             .flex()
             .flex_col()
             .children(appshot_strip)
+            .children(image_strip)
             .child(
                 div()
                     .h(px(textarea_height))
@@ -14040,10 +14010,7 @@ impl Render for Composer {
                             .pl(px(ACTION_PRIMARY_GAP))
                             .child(send_button),
                     ),
-            )
-            // Last, so it paints over the editor and toolbar while a file is
-            // carried over the card.
-            .child(tray::drop_overlay(&theme, cx));
+            );
         let new_thread_target_selectors =
             (new_thread_chrome_opacity > 0.0 && !self.cloud_launch_pending(cx)).then(|| {
                 self.pickers.update(cx, |pickers, cx| {
@@ -14061,6 +14028,7 @@ impl Render for Composer {
             .relative()
             .id("composer-surface")
             .child(crate::frost::floating_glass(surface_radius, 20.0, body))
+            .child(tray::drop_overlay(&theme, cx))
             .child({
                 let measured = self.surface_bounds.clone();
                 // All prepaint completes before any paint. The background
@@ -14123,8 +14091,7 @@ impl Render for Composer {
                         .justify_start()
                         .gap(px(6.0))
                         .px(px(8.0))
-                        .children(new_thread_target_selectors)
-                        .child(div().flex_1()),
+                        .children(new_thread_target_selectors),
                 )
         };
         let container = if self.cloud_launch_pending(cx) {

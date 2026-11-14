@@ -44,42 +44,65 @@ fn format_branch_error(branch: &str, error: &str) -> String {
             "Branch already in use\n“{branch}” is checked out in another worktree.{location}\nSwitch that worktree to another branch first."
         )
     } else if error.contains("local changes") || error.contains("would be overwritten") {
-        format!(
-            "Uncommitted changes\nCommit or stash your changes before switching branches.\n{error}"
-        )
+        "Uncommitted changes\nCommit or stash your changes before switching branches.".to_owned()
     } else {
         format!("Couldn’t switch branch\n{error}")
     }
 }
 
-pub(super) struct ComposerBranch {
-    shell: gpui::WeakEntity<Shell>,
-    _observation: Subscription,
-}
-
-impl ComposerBranch {
-    pub(super) fn new(shell: Entity<Shell>, cx: &mut Context<Self>) -> Self {
-        Self {
-            shell: shell.downgrade(),
-            _observation: cx.observe(&shell, |_, _, cx| cx.notify()),
-        }
-    }
-}
-
-impl Render for ComposerBranch {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.shell
-            .update(cx, |shell, cx| {
-                let theme = Theme::of(cx).clone();
-                shell
-                    .render_top_bar_branch(&theme, cx)
-                    .unwrap_or_else(|| Empty.into_any_element())
-            })
-            .unwrap_or_else(|_| Empty.into_any_element())
-    }
-}
-
 impl Shell {
+    pub(super) fn render_session_branch(
+        &mut self,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let target = self.branch_target(cx)?;
+        let open = self.branch_menu.menu.is_open();
+        let mut row = super::session_info::action_row(theme, "session-info-branch")
+            .debug_selector(|| "session-info-branch".into())
+            .relative()
+            .role(gpui::Role::Button)
+            .aria_label(tr(cx, msg::chat::top_bar_switch_branch))
+            .aria_expanded(open)
+            .tip(SharedString::from(target.branch.clone()))
+            .when(open, |row| row.bg(theme.ink(0.06)))
+            .on_mouse_down(
+                MouseButton::Left,
+                cx.listener(|this, _, _, _| this.branch_menu.menu.note_trigger_press()),
+            )
+            .on_click(cx.listener(|this, _, _, cx| {
+                cx.stop_propagation();
+                if this.branch_menu.menu.take_press_was_open() {
+                    this.close_branch_menu(cx);
+                } else {
+                    this.close_summary_pr_menu(cx);
+                    this.open_branch_menu(cx);
+                }
+            }))
+            .child(popover::picker_icon_slot(super::session_info::row_glyph(
+                icons::GIT_BRANCH,
+                theme,
+            )))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .truncate()
+                    .child(target.branch.clone()),
+            )
+            .child(
+                icon(icons::ALT_ARROW_DOWN)
+                    .size(px(12.0))
+                    .flex_none()
+                    .text_color(theme.text_muted),
+            );
+        if open {
+            let menu = self.render_branch_menu(&target, theme, cx);
+            row = row.child(popover::nested_menu("session-info-branch-menu", menu, true));
+        }
+        Some(row.into_any_element())
+    }
+
     fn branch_target(&self, cx: &App) -> Option<BranchTarget> {
         let conversation = self.conversation_state(cx);
         let state = conversation.read(cx);
@@ -451,16 +474,9 @@ impl Shell {
                     .aria_label(SharedString::from(name.clone()))
                     .aria_selected(is_current)
                     .gap(px(8.0))
-                    .h(px(28.0))
-                    .py(px(3.0))
-                    .text_size(px(12.0))
-                    .child(
-                        icon(icons::CHECK)
-                            .size(px(14.0))
-                            .flex_none()
-                            .text_color(theme.text)
-                            .when(!is_current, |glyph| glyph.opacity(0.0)),
-                    )
+                    .min_h(px(32.0))
+                    .py(px(4.0))
+                    .text_size(crate::typography::text_sm())
                     .child(div().flex_1().min_w_0().truncate().child(name.clone()))
                     .when(busy, |row| {
                         row.child(
@@ -470,6 +486,13 @@ impl Shell {
                                 .child(tr(cx, msg::native::switching)),
                         )
                     })
+                    .child(
+                        icon(icons::CHECK)
+                            .size(px(14.0))
+                            .flex_none()
+                            .text_color(theme.text)
+                            .when(!is_current, |glyph| glyph.opacity(0.0)),
+                    )
                     .on_click(cx.listener(move |this, _, _, cx| {
                         this.switch_top_bar_branch(pick.clone(), cx)
                     }))
@@ -486,8 +509,9 @@ impl Shell {
             .chain(std::iter::once(current.chars().count()))
             .max()
             .unwrap_or(0);
-        let width = (longest as f32 * 6.0 + 48.0).clamp(224.0, 288.0);
+        let width = (longest as f32 * 6.5 + 48.0).clamp(248.0, 320.0);
         popover::popover_card(&theme)
+            .debug_selector(|| "branch-menu".into())
             .w(px(width))
             .bg(theme.surface_card.opacity(1.0))
             .on_mouse_down_out(cx.listener(|this, _, _, cx| this.close_branch_menu(cx)))

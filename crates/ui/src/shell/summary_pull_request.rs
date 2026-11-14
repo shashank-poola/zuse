@@ -162,7 +162,7 @@ impl Shell {
         }));
     }
 
-    fn close_summary_pr_menu(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn close_summary_pr_menu(&mut self, cx: &mut Context<Self>) {
         self.summary_pr.menu_open = false;
         self.summary_pr.submenu = None;
         self.summary_pr.submenu_bounds = None;
@@ -264,6 +264,7 @@ impl Shell {
             .aria_expanded(open)
             .when(open, |row| row.bg(theme.ink(0.06)))
             .on_click(cx.listener(move |this, _, _, cx| {
+                this.close_branch_menu(cx);
                 this.summary_pr.menu_open = !open;
                 this.summary_pr.submenu = None;
                 if !open {
@@ -400,7 +401,7 @@ impl Shell {
         let device = self.summary_pr.target.clone();
         let github_url = summary.url.clone();
         let mut menu = popover::popover_card(theme)
-            .w(px(232.0))
+            .w(px(248.0))
             .flex()
             .flex_col()
             .gap(px(2.0))
@@ -479,6 +480,19 @@ impl Shell {
                 }))
             }),
         );
+        if open {
+            let auto_fix = self
+                .composer
+                .update(cx, |composer, cx| composer.pr_auto_fix_button(cx));
+            menu = menu.children(auto_fix.map(|control| {
+                div()
+                    .min_h(px(32.0))
+                    .px(px(8.0))
+                    .flex()
+                    .items_center()
+                    .child(control)
+            }));
+        }
         menu = menu.child(popover::menu_separator());
         if state != "MERGED" {
             let label = detail.as_ref().map_or("", status_label);
@@ -531,7 +545,10 @@ impl Shell {
         popover::menu_row(theme, false, id)
             .id(id)
             .debug_selector(move || id.to_owned())
-            .text_size(crate::typography::text_xs())
+            .min_h(px(32.0))
+            .py(px(4.0))
+            .line_height(px(20.0))
+            .text_size(crate::typography::text_sm())
             .when(!enabled, |row| row.opacity(0.4).cursor_default())
             // `menu_row` owns the hover listener (its fade); pointer
             // movement over the row is the same signal.
@@ -569,7 +586,10 @@ impl Shell {
             .id(id)
             .debug_selector(move || id.to_owned())
             .relative()
-            .text_size(crate::typography::text_xs())
+            .min_h(px(32.0))
+            .py(px(4.0))
+            .line_height(px(20.0))
+            .text_size(crate::typography::text_sm())
             .when(!enabled, |row| row.opacity(0.4).cursor_default())
             .child(icon(glyph).size(px(15.0)).text_color(theme.text_muted))
             .child(div().flex_1().min_w_0().truncate().child(label))
@@ -622,7 +642,10 @@ impl Shell {
             popover::menu_row(theme, false, id)
                 .id(id)
                 .debug_selector(move || id.to_owned())
-                .text_size(crate::typography::text_xs())
+                .min_h(px(32.0))
+                .py(px(4.0))
+                .line_height(px(20.0))
+                .text_size(crate::typography::text_sm())
                 .when(!enabled, |row| row.opacity(0.4).cursor_default())
                 .child(icon(glyph).size(px(15.0)).text_color(theme.text_muted))
                 .child(div().flex_1().min_w_0().truncate().child(label))
@@ -642,7 +665,7 @@ impl Shell {
         let count = |n: usize| (n > 0).then(|| SharedString::from(n.to_string()));
         let open = detail.state == "OPEN";
         let mut card = popover::popover_card(theme)
-            .w(px(220.0))
+            .w(px(236.0))
             .relative()
             .flex()
             .flex_col()

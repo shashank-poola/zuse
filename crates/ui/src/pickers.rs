@@ -3978,7 +3978,7 @@ impl Pickers {
         );
         div()
             .min_w_0()
-            .flex_shrink(1.)
+            .flex_1()
             .flex()
             .flex_row()
             .items_center()
@@ -3998,8 +3998,9 @@ impl Pickers {
                 closing,
             ))
             .children(self.render_creation_workspace(cx))
-            .children(self.render_new_thread_git_selectors(cx))
             .children(self.render_import_chat(cx))
+            .child(div().flex_1())
+            .children(self.render_new_thread_git_selectors(cx))
             .into_any_element()
     }
 
@@ -9708,6 +9709,49 @@ mod tests {
                 let rows = picker.model_rows(cx);
                 assert_eq!(rows.len(), 1);
                 assert_eq!(rows[0].model.id, "opus");
+            })
+            .unwrap();
+    }
+
+    #[gpui::test]
+    fn compact_picker_deduplicates_ids_and_marks_same_named_models(cx: &mut gpui::TestAppContext) {
+        let dir = tempfile::tempdir().unwrap();
+        cx.update(|cx| {
+            cx.set_global(Theme::dark());
+            let mut settings = crate::settings::UiSettings::default();
+            settings.compact_model_picker = true;
+            crate::settings::init(settings, dir.path(), cx);
+        });
+        let handle = cx.add_window(|_, cx| {
+            let state = cx.new(|_| AppState::new());
+            Pickers::new(state, cx)
+        });
+        handle
+            .update(cx, |picker, _, cx| {
+                picker.harnesses =
+                    Loadable::Ready(vec![descriptor(HarnessId::ClaudeCode, "Claude")]);
+                picker.models.insert(
+                    HarnessId::ClaudeCode,
+                    Loadable::Ready(vec![
+                        bare_model("claude-sonnet-5", "Sonnet 5"),
+                        bare_model("claude-sonnet-5", "Sonnet 5"),
+                        bare_model("sonnet", "Sonnet 5"),
+                        bare_model("opus", "Opus"),
+                    ]),
+                );
+                picker.config.harness = Some(HarnessId::ClaudeCode);
+                picker.model_scope = Some(HarnessId::ClaudeCode);
+                picker.model_rail = ModelRail::Harness;
+                let rows = picker.model_rows(cx);
+                assert_eq!(
+                    rows.iter()
+                        .map(|row| row.model.id.as_str())
+                        .collect::<Vec<_>>(),
+                    ["claude-sonnet-5", "sonnet", "opus"]
+                );
+                assert!(rows[0].ambiguous);
+                assert!(rows[1].ambiguous);
+                assert!(!rows[2].ambiguous);
             })
             .unwrap();
     }

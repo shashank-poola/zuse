@@ -765,6 +765,8 @@ fn click_first_chip(
 #[gpui::test]
 fn clicking_an_image_chip_opens_the_picture_full_size(cx: &mut gpui::TestAppContext) {
     let (_dir, handle) = composer_focus_window(cx);
+    // Settle the composer immediately before hit-testing the chip.
+    cx.update(|cx| crate::motion::set_reduced_motion(cx, true));
     paste_images(&handle, cx, 1);
     // Hovering previews the picture; the click opens it full size.
     cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear())

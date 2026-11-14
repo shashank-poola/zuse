@@ -51,7 +51,7 @@ impl Shell {
                         .py(px(3.))
                         .rounded_md()
                         .text_size(px(11.))
-                        .child("New chat")
+                        .child("New thread")
                         .hover(|v| v.bg(theme.element_hover))
                         .on_click(cx.listener(move |this, _, _, cx| {
                             this.open_new_cloud_session(project.clone(), cx)

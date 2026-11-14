@@ -122,22 +122,16 @@ impl Composer {
         let plan = self.plan_mode(cx);
         let plan_enabled = self.plan_item_enabled(cx);
         let rows = ADD_MENU_ITEMS.into_iter().enumerate().map(|(index, item)| {
-            let (icon, label, description, checked, enabled) = match item {
+            let (icon, label, checked, enabled) = match item {
                 AddMenuItem::AttachImages => (
                     icons::PLUS,
                     tr(cx, msg::native::composer_attach_images),
-                    None,
                     false,
                     true,
                 ),
                 AddMenuItem::PlanMode => (
                     PLAN_ICON,
                     tr(cx, msg::chat::chat_composer_plan_mode),
-                    Some(if plan_enabled {
-                        tr(cx, msg::native::composer_plan_mode_description)
-                    } else {
-                        tr(cx, msg::native::composer_plan_mode_unavailable)
-                    }),
                     plan,
                     plan_enabled,
                 ),
@@ -155,6 +149,10 @@ impl Composer {
                 Role::MenuItem
             })
             .aria_label(label.clone())
+            .min_h(px(32.))
+            .when(!enabled, |row| {
+                row.tip(tr(cx, msg::native::composer_plan_mode_unavailable))
+            })
             .when(item == AddMenuItem::PlanMode, |row| {
                 row.aria_toggled(if checked {
                     gpui::Toggled::True
@@ -170,29 +168,15 @@ impl Composer {
                     .text_color(popup_theme.text_muted),
             )
             .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .flex()
-                    .flex_col()
-                    .gap(px(1.))
-                    .child(
-                        div()
-                            .truncate()
-                            .line_height(px(17.))
-                            .text_size(crate::typography::text_sm())
-                            .font_weight(gpui::FontWeight::MEDIUM)
-                            .text_color(popup_theme.text)
-                            .child(label),
-                    )
-                    .children(description.map(|description| {
-                        div()
-                            .truncate()
-                            .line_height(px(15.))
-                            .text_size(crate::typography::text_xs())
-                            .text_color(popup_theme.text_muted)
-                            .child(description)
-                    })),
+                div().flex_1().min_w_0().child(
+                    div()
+                        .truncate()
+                        .line_height(px(17.))
+                        .text_size(crate::typography::text_sm())
+                        .font_weight(gpui::FontWeight::MEDIUM)
+                        .text_color(popup_theme.text)
+                        .child(label),
+                ),
             )
             .child(div().flex_none().size(px(14.)).when(checked, |slot| {
                 slot.child(
@@ -209,8 +193,9 @@ impl Composer {
         });
         let menu = popover::popover_card(&popup_theme)
             .id("composer-add-menu")
+            .debug_selector(|| "composer-add-menu".into())
             .role(Role::Menu)
-            .w(px(260.))
+            .w(px(168.))
             .flex()
             .flex_col()
             .gap(px(2.))

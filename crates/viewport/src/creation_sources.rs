@@ -429,6 +429,7 @@ impl Render for SourcePicker {
         view = view.child(
             div()
                 .id("create-from")
+                .debug_selector(|| "creation-source-trigger".into())
                 .relative()
                 .flex_none()
                 .role(Role::Button)
@@ -480,6 +481,7 @@ impl Render for SourcePicker {
             let bounds = self.bounds.clone();
             let mut card = div()
                 .id("creation-source-menu")
+                .debug_selector(|| "creation-source-menu".into())
                 .relative()
                 .role(Role::Dialog)
                 .aria_label(tr(cx, msg::chat::create_from_menu_create_from))
@@ -489,7 +491,8 @@ impl Render for SourcePicker {
                     this.close(None, cx);
                     cx.stop_propagation();
                 }))
-                .w(px(480.).min(window.viewport_size().width - px(32.)))
+                .w(px(340.).min(window.viewport_size().width - px(32.)))
+                .h(px(256.).min(window.viewport_size().height - px(16.)))
                 .rounded(px(14.))
                 .bg(palette::tone(hsla(132. / 360., 0.05, 0.105, 0.72), white()))
                 .shadow_lg()
@@ -587,8 +590,8 @@ impl Render for SourcePicker {
             let rows = self.filtered(cx);
             let mut list = div()
                 .id("creation-source-list")
-                .min_h(px(96.))
-                .max_h(px(320.))
+                .flex_1()
+                .min_h_0()
                 .py(px(4.))
                 .overflow_y_scroll()
                 .track_scroll(&self.scroll);
@@ -710,10 +713,11 @@ impl Render for SourcePicker {
                 }));
             }
             card = card.child(list);
-            let height = 75.546875 + (self.filtered(cx).len() as f32 * 36. + 8.).clamp(96., 320.);
-            let below = self.bounds.get().is_none_or(|bounds| {
-                bounds.bottom() + px(6. + height) <= window.viewport_size().height - px(8.)
-            });
+            let height = px(256.).min(window.viewport_size().height - px(16.));
+            let below = self
+                .bounds
+                .get()
+                .is_some_and(|bounds| bounds.top() < height + px(14.));
             view = view.child(
                 div()
                     .absolute()
@@ -749,6 +753,62 @@ mod tests {
     use super::*;
     use std::path::Path;
     use std::prelude::v1::test;
+
+    struct PickerFixture(Entity<SourcePicker>);
+
+    impl Render for PickerFixture {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            div()
+                .size_full()
+                .flex()
+                .flex_col()
+                .justify_end()
+                .items_end()
+                .pb(px(40.))
+                .child(self.0.clone())
+        }
+    }
+
+    #[gpui::test]
+    fn source_menu_opens_above_and_keeps_its_size_as_results_change(cx: &mut TestAppContext) {
+        let (fixture, cx) = cx.add_window_view(|_, cx| {
+            PickerFixture(cx.new(|cx| {
+                let mut picker = SourcePicker::new(cx);
+                picker.open = true;
+                picker
+            }))
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        cx.update(|window, cx| window.draw(cx).clear());
+        let trigger = cx.debug_bounds("creation-source-trigger").unwrap();
+        let empty = cx.debug_bounds("creation-source-menu").unwrap();
+        assert!(
+            empty.bottom() <= trigger.top(),
+            "menu {empty:?}, trigger {trigger:?}"
+        );
+        assert_eq!(empty.size, size(px(340.), px(256.)));
+
+        cx.update(|_, cx| {
+            fixture.update(cx, |fixture, cx| {
+                fixture.0.update(cx, |picker, cx| {
+                    picker.rows.push(Row {
+                        source: Source::Pr { number: 2 },
+                        title: "Example pull request".into(),
+                        lead: "#2".into(),
+                        branch: None,
+                        author: None,
+                        in_use: false,
+                    });
+                    cx.notify();
+                });
+            });
+        });
+        cx.update(|window, cx| window.draw(cx).clear());
+        let populated = cx.debug_bounds("creation-source-menu").unwrap();
+        assert_eq!(populated.size, empty.size);
+        assert!(populated.bottom() <= trigger.top());
+    }
+
     fn git(root: &Path, args: &[&str]) -> String {
         let output = std::process::Command::new("git")
             .current_dir(root)

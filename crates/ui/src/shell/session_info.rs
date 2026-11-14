@@ -14,12 +14,12 @@ use crate::project_actions::{ProjectActionsStatus, action_icon};
 
 /// The card's width, its inset from the column's right edge, and its drop
 /// below the titlebar that holds its toggle.
-const SESSION_CARD_WIDTH: f32 = 288.0;
+const SESSION_CARD_WIDTH: f32 = 264.0;
 const SESSION_CARD_INSET: f32 = 12.0;
 const SESSION_CARD_DROP: f32 = 4.0;
 
 /// The card's row height, padding and corner radius.
-const SUMMARY_ROW_HEIGHT: f32 = 28.0;
+const SUMMARY_ROW_HEIGHT: f32 = 32.0;
 const SUMMARY_CARD_PADDING: f32 = 6.0;
 const SUMMARY_CARD_RADIUS: f32 = 12.0;
 /// Where a row's label starts (padding + icon + gap): sub-rows indent to it.
@@ -37,7 +37,7 @@ pub(super) fn summary_row(theme: &Theme) -> gpui::Div {
         .min_h(px(SUMMARY_ROW_HEIGHT))
         .px(px(10.0))
         .rounded(px(6.0))
-        .text_size(crate::typography::text_xs())
+        .text_size(crate::typography::text_sm())
         .text_color(theme.text)
 }
 
@@ -223,10 +223,15 @@ impl Shell {
     }
 
     pub(super) fn toggle_session_info(&mut self, cx: &mut Context<Self>) {
-        self.session_info_overlay = !self
+        let open = self
             .session_info_pressed_open
             .take()
             .unwrap_or(self.session_info_shown);
+        if open {
+            self.close_session_info_overlay(cx);
+        } else {
+            self.session_info_overlay = true;
+        }
         cx.notify();
     }
 
@@ -234,6 +239,8 @@ impl Shell {
     pub(super) fn close_session_info_overlay(&mut self, cx: &mut Context<Self>) {
         if self.session_info_overlay {
             self.session_info_overlay = false;
+            self.close_summary_pr_menu(cx);
+            self.close_branch_menu(cx);
             cx.notify();
         }
     }
@@ -359,12 +366,14 @@ impl Shell {
         let git = checkout.is_some();
         let checkout_path = checkout.as_ref().map(|(_, path)| path.clone());
         let branch_row = match branch {
-            Some(branch) => Some(
-                info_row(&theme, row_glyph(icons::GIT_BRANCH, &theme), branch.clone())
-                    .id("session-info-branch")
-                    .tip(checkout_path.clone().unwrap_or(branch))
-                    .into_any_element(),
-            ),
+            Some(branch) => self.render_session_branch(&theme, cx).or_else(|| {
+                Some(
+                    info_row(&theme, row_glyph(icons::GIT_BRANCH, &theme), branch.clone())
+                        .id("session-info-branch")
+                        .tip(checkout_path.clone().unwrap_or(branch))
+                        .into_any_element(),
+                )
+            }),
             None => checkout.map(|(worktree, path)| {
                 let (glyph, label) = if worktree {
                     (icons::WORKTREE, "Worktree")
@@ -456,14 +465,9 @@ impl Shell {
             .children(actions)
             .child(self.recovery.clone());
 
-        let card = div()
+        let card = popover::popover_card(&theme)
             .w(px(SESSION_CARD_WIDTH))
-            .rounded(px(SUMMARY_CARD_RADIUS))
-            .overflow_hidden()
-            .border_1()
-            .border_color(theme.border)
-            .bg(popover::surface_bg(&theme))
-            .when(!theme.is_frost(), |card| card.shadow_lg())
+            .p(px(0.0))
             .child(body);
 
         // It drops in from just under its toggle, placed from the column's
@@ -483,7 +487,7 @@ impl Shell {
                 .on_mouse_down_out(cx.listener(|this, _, _, cx| {
                     // The pull request menu floats beside the card and
                     // dismisses itself first.
-                    if !this.summary_pr.menu_open {
+                    if !this.summary_pr.menu_open && !this.branch_menu.menu.is_open() {
                         this.close_session_info_overlay(cx);
                     }
                 }))
@@ -724,14 +728,9 @@ impl Shell {
             .child(sleep)
             .children(folder)
             .child(details);
-        let card = div()
+        let card = popover::popover_card(&theme)
             .w(px(SESSION_CARD_WIDTH))
-            .rounded(px(SUMMARY_CARD_RADIUS))
-            .overflow_hidden()
-            .border_1()
-            .border_color(theme.border)
-            .bg(popover::surface_bg(&theme))
-            .when(!theme.is_frost(), |card| card.shadow_lg())
+            .p(px(0.0))
             .child(body);
         let ease = crate::motion::RESIZE.progress(reveal.clamp(0.0, 1.0));
         let dy = -6.0 * (1.0 - ease);

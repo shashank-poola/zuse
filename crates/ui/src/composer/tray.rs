@@ -462,31 +462,46 @@ pub(crate) fn drop_overlay(theme: &Theme, cx: &gpui::App) -> gpui::Stateful<gpui
     div()
         .id("composer-drop-overlay")
         .absolute()
-        .top(px(4.0))
-        .left(px(4.0))
-        .right(px(4.0))
-        .bottom(px(4.0))
-        .rounded(px(10.0))
-        .border_1()
-        .border_dashed()
-        .border_color(theme.text.opacity(0.4))
-        .bg(crate::popover::surface_bg(&theme).opacity(1.0))
-        .flex()
-        .items_center()
-        .justify_center()
-        .gap(px(8.0))
-        .text_size(px(12.0))
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(theme.text_muted)
+        .top(px(-30.0))
+        .left_0()
+        .right_0()
+        .bottom_0()
         .opacity(0.0)
         .drag_over::<gpui::ExternalPaths>(|style, _, _, _| style.opacity(1.0))
         .drag_over::<crate::files::WorkspacePathDrag>(|style, _, _, _| style.opacity(1.0))
         .child(
-            icon(icons::UPLOAD)
-                .size(px(14.0))
-                .text_color(theme.text_muted),
+            div()
+                .absolute()
+                .top(px(32.0))
+                .left(px(2.0))
+                .right(px(2.0))
+                .bottom(px(2.0))
+                .rounded(px(super::COMPOSER_RADIUS - 2.0))
+                .border_1()
+                .border_dashed()
+                .border_color(theme.accent),
         )
-        .child(tr(cx, msg::chat::chat_composer_drop_files_to_attach))
+        .child(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .right_0()
+                .h(px(26.0))
+                .flex()
+                .items_center()
+                .justify_center()
+                .gap(px(8.0))
+                .text_size(px(12.0))
+                .font_weight(FontWeight::MEDIUM)
+                .text_color(theme.text_muted)
+                .child(
+                    icon(icons::UPLOAD)
+                        .size(px(14.0))
+                        .text_color(theme.text_muted),
+                )
+                .child(tr(cx, msg::chat::chat_composer_drop_files_to_attach)),
+        )
 }
 
 // ---------------------------------------------------------------------------
@@ -719,6 +734,7 @@ impl Composer {
         let tiles: Vec<StagedTile> = self
             .tiled_attachments(cx)
             .into_iter()
+            .filter(|att| att.image().is_none())
             .map(|att| StagedTile {
                 id: att.id.clone(),
                 name: att.name.clone(),
@@ -757,7 +773,7 @@ impl Composer {
                     tiles
                         .into_iter()
                         .enumerate()
-                        .map(|(ix, tile)| self.attachment_thumb(ix, tile, theme, cx)),
+                        .map(|(ix, tile)| self.attachment_thumb(ix, tile, THUMB, theme, cx)),
                 )
                 .into_any_element(),
         )
@@ -769,13 +785,14 @@ impl Composer {
         &self,
         ix: usize,
         tile: StagedTile,
+        size: f32,
         theme: &Theme,
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let group: SharedString = format!("tray-att-{}", tile.id).into();
         let frame = div()
             .id(("tray-att-thumb", ix))
-            .size(px(THUMB))
+            .size(px(size))
             .rounded(px(THUMB_RADIUS))
             .overflow_hidden()
             .border_1()
@@ -797,8 +814,8 @@ impl Composer {
                         // Explicit dims: img honours the intrinsic aspect over
                         // a percent height, which would overflow the frame.
                         img(image)
-                            .w(px(THUMB - 2.0))
-                            .h(px(THUMB - 2.0))
+                            .w(px(size - 2.0))
+                            .h(px(size - 2.0))
                             .rounded(px(THUMB_RADIUS - 1.0))
                             .object_fit(ObjectFit::Cover),
                     )
@@ -854,6 +871,41 @@ impl Composer {
                     ),
             ))
             .into_any_element()
+    }
+
+    /// Image attachments stay visible even when their inline chip is present.
+    pub(super) fn render_image_strip(
+        &self,
+        theme: &Theme,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let tiles: Vec<_> = self
+            .staged()
+            .iter()
+            .filter_map(|att| {
+                Some(StagedTile {
+                    id: att.id.clone(),
+                    name: att.name.clone(),
+                    image: Some(att.image()?.clone()),
+                })
+            })
+            .collect();
+        if tiles.is_empty() {
+            return None;
+        }
+        Some(
+            div()
+                .id("composer-image-strip")
+                .flex()
+                .flex_wrap()
+                .gap(px(super::STRIP_GAP))
+                .px(px(super::STRIP_PAD_X))
+                .pt(px(super::STRIP_PAD_TOP))
+                .children(tiles.into_iter().enumerate().map(|(ix, tile)| {
+                    self.attachment_thumb(ix, tile, super::STRIP_THUMB, theme, cx)
+                }))
+                .into_any_element(),
+        )
     }
 
     /// One staged context item: the message badge it will become (hover or

@@ -287,7 +287,7 @@ impl Composer {
                     .role(Role::ListBoxOption)
                     .aria_label(label(level))
                     .aria_selected(checked)
-                    .when_some(blocked, |row, reason| row.aria_description(reason))
+                    .aria_description(blocked.unwrap_or(description(level)))
                     .h(px(44.))
                     .py(px(0.))
                     .gap(px(10.))

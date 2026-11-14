@@ -77,6 +77,14 @@ fn branch_errors_explain_worktree_conflicts_and_preserve_other_details() {
         format_branch_error("feature", "local changes would be overwritten")
             .contains("Commit or stash")
     );
+    let conflict = format_branch_error(
+        "feature",
+        "git: error: Your local changes would be overwritten by checkout:\n app/page.tsx\nAborting",
+    );
+    assert_eq!(
+        conflict,
+        "Uncommitted changes\nCommit or stash your changes before switching branches."
+    );
     assert!(format_branch_error("feature", "permission denied").contains("permission denied"));
 }
 
@@ -104,7 +112,12 @@ impl Render for TabHost {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.shell.update(cx, |shell, cx| {
             let theme = Theme::of(cx).clone();
+            let session_info = shell
+                .session_info_visible()
+                .then(|| shell.render_session_info(1.0, 600.0, cx))
+                .flatten();
             div()
+                .relative()
                 .size_full()
                 .flex()
                 .flex_col()
@@ -116,6 +129,7 @@ impl Render for TabHost {
                 .child(shell.render_sidebar_nav(&theme, cx))
                 .child(div().flex_1())
                 .child(shell.composer.clone())
+                .children(session_info)
         })
     }
 }
@@ -288,12 +302,13 @@ fn setup(cx: &mut TestAppContext) -> (Entity<Shell>, &mut VisualTestContext) {
 }
 
 #[gpui::test]
-fn branch_pill_fits_compact_composer(cx: &mut TestAppContext) {
+fn branch_picker_opens_left_of_the_session_card(cx: &mut TestAppContext) {
     let (shell, cx) = setup(cx);
-    for width in [436.0, 768.0] {
+    for width in [600.0, 900.0] {
         cx.simulate_resize(gpui::size(px(width), px(700.0)));
         cx.update(|window, cx| {
             shell.update(cx, |shell, cx| {
+                shell.session_info_overlay = true;
                 shell
                     .composer
                     .update(cx, |composer, cx| composer.set_available_width(width, cx));
@@ -301,7 +316,8 @@ fn branch_pill_fits_compact_composer(cx: &mut TestAppContext) {
             window.refresh();
             window.draw(cx).clear();
         });
-        let branch = cx.debug_bounds("top-bar-branch").expect("branch pill");
+        let branch = cx.debug_bounds("session-info-branch").expect("branch row");
+        let card = cx.debug_bounds("session-info").expect("session card");
         let input = shell.read_with(cx, |shell, cx| {
             shell
                 .composer
@@ -310,11 +326,68 @@ fn branch_pill_fits_compact_composer(cx: &mut TestAppContext) {
                 .get()
                 .expect("composer surface")
         });
-        assert!(
-            branch.right() <= input.right(),
-            "branch {branch:?}, input {input:?}"
-        );
-        assert!(branch.left() >= input.left());
+        assert!(branch.left() >= card.left());
+        assert!(branch.right() <= card.right());
         assert!(branch.bottom() <= input.top());
+        assert!(cx.debug_bounds("top-bar-branch").is_none());
+        if !shell.read_with(cx, |shell, _| shell.branch_menu.menu.is_open()) {
+            cx.simulate_click(branch.center(), gpui::Modifiers::default());
+        }
+        cx.update(|window, cx| window.draw(cx).clear());
+        assert!(
+            shell.read_with(cx, |shell, _| shell.session_info_visible()),
+            "session dismissed on branch press"
+        );
+        assert!(
+            shell.read_with(cx, |shell, _| shell.branch_menu.menu.is_open()),
+            "branch picker did not open"
+        );
+        let menu = cx.debug_bounds("branch-menu").expect("branch menu");
+        assert!(menu.right() <= card.left(), "menu {menu:?}, card {card:?}");
+        assert!(menu.left() >= px(0.0));
+        assert!(shell.read_with(cx, |shell, _| shell.session_info_visible()));
+    }
+    let branch = cx.debug_bounds("session-info-branch").unwrap();
+    cx.simulate_click(branch.center(), gpui::Modifiers::default());
+    cx.update(|window, cx| window.draw(cx).clear());
+    assert!(cx.debug_bounds("branch-menu").is_none());
+    assert!(shell.read_with(cx, |shell, _| shell.session_info_visible()));
+}
+
+#[gpui::test]
+fn attachment_menu_stays_above_its_button_when_the_prompt_grows(cx: &mut TestAppContext) {
+    let (shell, cx) = setup(cx);
+    cx.update(|_, cx| crate::motion::set_reduced_motion(cx, true));
+    for text in ["", "First line\nSecond line\nThird line\nFourth line"] {
+        cx.update(|window, cx| {
+            shell.update(cx, |shell, cx| {
+                shell.composer.update(cx, |composer, cx| {
+                    composer
+                        .input
+                        .update(cx, |input, cx| input.set_text(text, cx));
+                    cx.notify();
+                });
+            });
+            window.draw(cx).clear();
+        });
+        let button = cx.debug_bounds("composer-attach").expect("attach button");
+        cx.simulate_click(button.center(), gpui::Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear());
+        let menu = cx
+            .debug_bounds("composer-add-menu")
+            .expect("attachment menu");
+        assert!((menu.left() - button.left()).abs() <= px(1.0));
+        assert!(menu.bottom() <= button.top());
+        assert!(
+            button.top() - menu.bottom() <= px(12.0),
+            "menu {menu:?}, button {button:?}"
+        );
+        assert!(
+            menu.size.height <= px(90.0),
+            "single-line menu rows: {menu:?}"
+        );
+        assert!(menu.size.width <= px(168.0), "compact menu: {menu:?}");
+        cx.simulate_click(button.center(), gpui::Modifiers::default());
+        cx.update(|window, cx| window.draw(cx).clear());
     }
 }

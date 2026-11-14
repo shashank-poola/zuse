@@ -4583,7 +4583,7 @@ impl Shell {
             );
         }
         popover::popover_card(theme)
-            .w(px(self.sidebar_content_width() - 2.0 * Theme::SPACE_SM))
+            .w(px(200.0))
             .track_focus(&focus)
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
                 this.sidebar_view_menu_key(event, cx)
@@ -4929,13 +4929,11 @@ impl Shell {
         let view_trigger = if self.sidebar_view_menu.get().is_some() {
             let closing = self.sidebar_view_menu.closing_since();
             let menu = self.render_sidebar_view_menu(theme, cx);
-            view_trigger
-                .relative()
-                .child(popover::anchored_menu_below_end(
-                    "sidebar-view-options-menu",
-                    menu,
-                    closing,
-                ))
+            view_trigger.relative().child(popover::anchored_menu_right(
+                "sidebar-view-options-menu",
+                menu,
+                closing,
+            ))
         } else {
             view_trigger
         };

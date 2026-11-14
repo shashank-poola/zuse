@@ -220,6 +220,10 @@ impl ImageView {
                 size(f32::from(bounds.size.width), f32::from(bounds.size.height)),
             );
         }
+        let measured = {
+            let bounds = self.0.borrow().bounds;
+            bounds.size.width > px(0.0) && bounds.size.height > px(0.0)
+        };
         let geometry = self.0.borrow().geometry;
         let origin = geometry.image_origin();
         let measure = self.clone();
@@ -296,15 +300,17 @@ impl ImageView {
                         .bg(plate),
                 )
             })
-            .child(
-                gpui::img(image)
-                    .absolute()
-                    .left(px(origin.x))
-                    .top(px(origin.y))
-                    .w(px(natural.width * geometry.scale))
-                    .h(px(natural.height * geometry.scale))
-                    .object_fit(gpui::ObjectFit::Contain),
-            )
+            .when(measured, |viewport| {
+                viewport.child(
+                    gpui::img(image)
+                        .absolute()
+                        .left(px(origin.x))
+                        .top(px(origin.y))
+                        .w(px(natural.width * geometry.scale))
+                        .h(px(natural.height * geometry.scale))
+                        .object_fit(gpui::ObjectFit::Contain),
+                )
+            })
             .child(
                 gpui::canvas(
                     move |bounds, window, cx| {

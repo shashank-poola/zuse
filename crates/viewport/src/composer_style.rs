@@ -10,5 +10,5 @@ pub const EDITOR_PAD_TOP: f32 = 12.;
 pub const EDITOR_PAD_BOTTOM: f32 = 8.;
 pub const CONTENT_PAD_Y: f32 = 7.;
 pub const TOOLBAR_HEIGHT: f32 = 40.;
-pub const TEXT_SIZE: f32 = 12.;
-pub const LINE_HEIGHT: f32 = 18.;
+pub const TEXT_SIZE: f32 = 14.;
+pub const LINE_HEIGHT: f32 = 20.;

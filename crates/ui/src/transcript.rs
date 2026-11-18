@@ -6904,6 +6904,12 @@ impl Transcript {
                     this.attachment_preview =
                         Some(crate::attachments::PreviewImage::new(name, Arc::new(image)));
                     cx.notify();
+                } else {
+                    crate::toast::show(
+                        cx,
+                        crate::toast::ToastKind::Error,
+                        "Couldn't load this PDF page.",
+                    );
                 }
             });
         })

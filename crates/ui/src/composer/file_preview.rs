@@ -49,6 +49,14 @@ fn preview_contents(name: &str, bytes: &Arc<Vec<u8>>, index: usize) -> PreviewRe
 }
 
 impl Composer {
+    pub(super) fn clear_attachment_preview(&mut self) {
+        self.preview = None;
+        self.file_preview = None;
+        self.pdf_preview = None;
+        self.file_preview_generation = self.file_preview_generation.wrapping_add(1);
+        self.preview_focus_pending = false;
+    }
+
     pub(super) fn open_file_preview(&mut self, id: &str, cx: &mut Context<Self>) {
         let Some(att) = self
             .staged()
@@ -143,6 +151,12 @@ impl Composer {
                     this.pdf_preview.as_mut().unwrap().index = index;
                     let image = gpui::Image::from_bytes(gpui::ImageFormat::Png, png);
                     this.preview = Some(attachments::PreviewImage::new(name, Arc::new(image)));
+                } else {
+                    crate::toast::show(
+                        cx,
+                        crate::toast::ToastKind::Error,
+                        "Couldn't load this PDF page.",
+                    );
                 }
                 cx.notify();
             });
@@ -158,7 +172,7 @@ impl Composer {
             index: pdf.index,
             count: pdf.pages,
             thumbs: Vec::new(),
-            swipe: std::rc::Rc::new(std::cell::Cell::new(Default::default())),
+            swipe: self.pdf_swipe.clone(),
             on_step: std::rc::Rc::new(move |step, _, cx| {
                 let _ = weak.update(cx, |this, cx| this.step_pdf_preview(step, cx));
             }),
@@ -335,6 +349,36 @@ pub(crate) mod tests {
                 let theme = Theme::of(cx).clone();
                 composer.render_image_strip(&theme, cx);
                 assert!(!composer.document_thumbnails.contains_key(&id));
+            })
+            .unwrap();
+    }
+
+    #[gpui::test]
+    fn clearing_preview_cancels_pending_file_load(cx: &mut gpui::TestAppContext) {
+        let (_dir, handle) = super::super::tests::composer_focus_window(cx);
+        handle
+            .update(cx, |composer, _, cx| {
+                let key = composer.current_key.clone();
+                composer.adopt_staged_attachments(
+                    key,
+                    vec![attachments::StagedAttachment::from_file(
+                        "notes.txt",
+                        b"hello".to_vec(),
+                    )],
+                    cx,
+                );
+                let id = composer.staged()[0].id.clone();
+                composer.open_file_preview(&id, cx);
+                assert!(composer.file_preview.is_some());
+                composer.clear_attachment_preview();
+            })
+            .unwrap();
+        cx.run_until_parked();
+        handle
+            .read_with(cx, |composer, _| {
+                assert!(composer.file_preview.is_none());
+                assert!(composer.pdf_preview.is_none());
+                assert!(composer.preview.is_none());
             })
             .unwrap();
     }

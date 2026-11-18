@@ -816,10 +816,26 @@ impl Composer {
             }
             None => {
                 let id = tile.id.clone();
+                let key_id = id.clone();
+                let accessible_id = id.clone();
+                let composer = cx.weak_entity();
                 let frame = frame
                     .cursor_pointer()
                     .role(gpui::Role::Button)
                     .aria_label(format!("Preview {}", tile.name))
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_color(theme.accent))
+                    .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            cx.stop_propagation();
+                            this.open_file_preview(&key_id, cx);
+                        }
+                    }))
+                    .on_a11y_action(gpui::AccessibleAction::Click, move |_, _, cx| {
+                        composer
+                            .update(cx, |this, cx| this.open_file_preview(&accessible_id, cx))
+                            .ok();
+                    })
                     .on_click(cx.listener(move |this, _, _, cx| this.open_file_preview(&id, cx)))
                     .bg(crate::theme::ink(0.04));
                 match tile.document_image {

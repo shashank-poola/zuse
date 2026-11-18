@@ -6601,6 +6601,7 @@ pub struct Composer {
     file_preview: Option<file_preview::FilePreview>,
     pdf_preview: Option<file_preview::PdfPreview>,
     file_preview_generation: u64,
+    pdf_swipe: std::rc::Rc<std::cell::Cell<crate::image_viewer::Swipe>>,
     /// Focused while the lightbox is open so Escape reaches it; the input
     /// gets focus back on close.
     preview_focus: FocusHandle,
@@ -7125,7 +7126,7 @@ impl Composer {
             self.cloud_canvas_key = None;
             self.failure = None;
             self.failure_key = None;
-            self.preview = None;
+            self.clear_attachment_preview();
             self.queue_edit_draft = None;
             self.queue_edit_attachment_draft = None;
             self.input.update(cx, |input, cx| input.set_text("", cx));
@@ -7407,6 +7408,7 @@ impl Composer {
             file_preview: None,
             pdf_preview: None,
             file_preview_generation: 0,
+            pdf_swipe: Default::default(),
             preview_focus: cx.focus_handle(),
             preview_focus_pending: false,
             picker_task: None,
@@ -9815,7 +9817,7 @@ impl Composer {
             self.clear_private_input(cx);
             // Attachments stay stashed under their chat key (the map swap IS
             // the navigation); only the transient chrome resets.
-            self.preview = None;
+            self.clear_attachment_preview();
             self.reset_mention(None, cx);
             self.reset_slash(None, cx);
             // Route changes snap (round 5/6): a mode difference between the
@@ -10413,7 +10415,7 @@ impl Composer {
         let text = zuse_protocol::attachment_mentions::demote_unattached_mentions(&text, &attached);
         let text = crate::comments::with_comments(&text, &comments);
         let text = crate::context_items::with_contexts(&text, &contexts);
-        self.preview = None;
+        self.clear_attachment_preview();
         let message_id = uuid::Uuid::new_v4().to_string();
         let created_at = chrono::Utc::now().timestamp_millis();
         // Existing busy chats always queue; compatibility was checked before
